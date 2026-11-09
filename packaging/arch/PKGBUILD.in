@@ -1,0 +1,29 @@
+# Généré par scripts/prepare_arch_build.py ; ne pas utiliser ce modèle directement.
+pkgname=dotfilepilot
+pkgver=@VERSION@
+pkgrel=@PKGREL@
+pkgdesc='Gestion des dotfiles avec GNU Stow, sauvegardes et interface GTK4'
+arch=('any')
+# Aucune licence choisie dans le projet : à définir avant distribution publique.
+depends=('python' 'gtk4' 'python-gobject' 'git' 'stow' 'sudo')
+makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
+source=("${pkgname}-${pkgver}.tar.gz")
+sha256sums=('@SOURCE_SHA256@')
+
+build() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    python -m build --wheel --no-isolation
+}
+
+check() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    python -B scripts/check.py
+    DOTFILEPILOT_TEST_STOW=1 python -B scripts/run_tests.py
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    python -m installer --destdir="$pkgdir" dist/*.whl
+    install -Dm644 packaging/arch/dotfilepilot.desktop \
+        "${pkgdir}/usr/share/applications/dotfilepilot.desktop"
+}

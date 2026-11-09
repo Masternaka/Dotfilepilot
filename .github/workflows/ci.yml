@@ -1,0 +1,169 @@
+name: Vérifications Dotfilepilot
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verification-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python ${{ matrix.python }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.9', '3.12', '3.14']
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: make check PYTHON=python
+      - name: Exécuter la suite et produire son bilan
+        run: |
+          mkdir -p artifacts/verification
+          python -B scripts/run_tests.py --report artifacts/verification/python.json
+      - name: Conserver le bilan des tests Python
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dotfilepilot-tests-python-${{ matrix.python }}-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/verification/python.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  native:
+    name: GTK4 et Stow réels sur Linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      # Dépendances du runner éphémère uniquement ; aucune installation locale.
+      - name: Préparer le runner Linux
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y python3-gi gir1.2-gtk-4.0 xvfb xauth dbus-x11 stow
+      - name: Exécuter les tests GTK4 et Stow avec les tests ordinaires
+        env:
+          DOTFILEPILOT_TEST_GTK: '1'
+          DOTFILEPILOT_TEST_STOW: '1'
+          GDK_BACKEND: x11
+          GSK_RENDERER: cairo
+          GTK_A11Y: none
+        run: |
+          mkdir -p artifacts/verification
+          xvfb-run -a dbus-run-session -- /usr/bin/python3 -B scripts/run_tests.py --require-native --report artifacts/verification/native.json
+      - name: Conserver le bilan des tests natifs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dotfilepilot-tests-native-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/verification/native.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  package:
+    name: Distribution Python
+    needs: [python, native]
+    outputs:
+      python_artifact_id: ${{ steps.upload_python.outputs.artifact-id }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Construire les sources puis le wheel depuis les sources
+        run: |
+          python -m pip install build
+          python -m build
+          python -B scripts/check_distribution.py dist
+      - name: Vérifier le paquet installé hors du dépôt
+        run: |
+          python -m venv "$RUNNER_TEMP/dotfilepilot-package"
+          "$RUNNER_TEMP/dotfilepilot-package/bin/python" -m pip install --no-deps dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/dotfilepilot-package/bin/python" -I -B "$GITHUB_WORKSPACE/scripts/smoke_installed.py"
+      - name: Identifier les archives Python
+        run: |
+          git rev-parse HEAD > dist/COMMIT.txt
+          cd dist
+          sha256sum *.whl *.tar.gz COMMIT.txt > SHA256SUMS
+      - name: Conserver les archives Python vérifiées
+        id: upload_python
+        uses: actions/upload-artifact@v7
+        with:
+          name: dotfilepilot-python-${{ github.sha }}-${{ github.run_attempt }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  arch:
+    name: Paquet Arch pour Omarchy
+    needs: package
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Préparer les outils dans le conteneur temporaire
+        run: pacman -Syu --noconfirm --needed python-build python-installer python-setuptools python-wheel gtk4 python-gobject git stow sudo desktop-file-utils
+      - uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.package.outputs.python_artifact_id }}
+          merge-multiple: true
+          path: dist/
+      - name: Vérifier les archives reçues
+        run: |
+          cd dist
+          sha256sum --check SHA256SUMS
+          test "$(cat COMMIT.txt)" = "$GITHUB_SHA"
+      - name: Préparer et construire sans droits administrateur
+        env:
+          BUILD_REVISION: ${{ github.run_number }}
+        run: |
+          python -B scripts/prepare_arch_build.py --source dist/*.tar.gz --output "$RUNNER_TEMP/dotfilepilot-arch" --pkgrel "$BUILD_REVISION"
+          useradd --create-home --shell /bin/bash builder
+          chown -R builder:builder "$RUNNER_TEMP/dotfilepilot-arch"
+          runuser -u builder -- bash -c 'cd "$1" && makepkg --noconfirm --cleanbuild' _ "$RUNNER_TEMP/dotfilepilot-arch"
+      - name: Vérifier le paquet dans le conteneur
+        run: |
+          pacman -U --noconfirm "$RUNNER_TEMP/dotfilepilot-arch/"*.pkg.tar.zst
+          cd "$RUNNER_TEMP"
+          desktop-file-validate /usr/share/applications/dotfilepilot.desktop
+          /usr/bin/python -I -B "$GITHUB_WORKSPACE/scripts/smoke_installed.py"
+      - name: Préparer les fichiers téléchargeables
+        run: |
+          mkdir -p artifacts/arch
+          cp "$RUNNER_TEMP/dotfilepilot-arch/"*.pkg.tar.zst artifacts/arch/
+          cp "$RUNNER_TEMP/dotfilepilot-arch/PKGBUILD" artifacts/arch/
+          cp dist/COMMIT.txt artifacts/arch/
+          cd artifacts/arch
+          sha256sum *.pkg.tar.zst PKGBUILD COMMIT.txt > SHA256SUMS
+      - name: Conserver le paquet Arch vérifié
+        uses: actions/upload-artifact@v7
+        with:
+          name: dotfilepilot-arch-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/arch/
+          if-no-files-found: error
+          retention-days: 30

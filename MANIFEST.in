@@ -1,0 +1,10 @@
+include README.md AGENTS.md Makefile pyproject.toml MANIFEST.in .gitignore
+recursive-include dotfilepilot *.py
+recursive-include tests *.py
+recursive-include scripts *.py
+recursive-include docs *.md
+global-exclude *.py[cod] .DS_Store
+prune build
+prune dist
+recursive-include .github *.md *.yml
+recursive-include packaging *.in *.desktop

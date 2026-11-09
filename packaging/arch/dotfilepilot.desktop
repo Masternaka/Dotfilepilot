@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Dotfilepilot
+Comment=Gestion des dotfiles avec sauvegardes et annulation
+Exec=dotfilepilot gui
+Icon=preferences-system
+Terminal=false
+Categories=System;Utility;
+StartupNotify=true
