@@ -99,8 +99,11 @@ def check_source(repository, selected):
 
 
 def stow_command(repository, target, selected):
+    # Stow collects packages through Getopt::Long's non-option callback.
+    # A standalone '--' leaves later names unprocessed by that callback.
+    # Names reaching this function have already passed check_source().
     return ["stow", "--dir=" + str(repository), "--target=" + str(target),
-            "--no-folding", "--stow", "--"] + list(selected)
+            "--no-folding", "--stow"] + list(selected)
 
 
 def preview(repository, target, selected):

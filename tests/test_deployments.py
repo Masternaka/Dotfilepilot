@@ -14,7 +14,16 @@ def fake_stow(command, cwd=None):
     """Simulates only fixture link creation, never claims native Stow coverage."""
     repository = Path(next(arg[6:] for arg in command if arg.startswith("--dir=")))
     target = Path(next(arg[9:] for arg in command if arg.startswith("--target=")))
-    names = command[command.index("--") + 1:]
+    # Match Stow's Getopt::Long callback: '--' ends parsing and later names
+    # never reach its package list. The previous fake hid this CLI failure.
+    names = []
+    for argument in command[1:]:
+        if argument == "--":
+            break
+        if not argument.startswith("-"):
+            names.append(argument)
+    if not names:
+        raise PilotError("stow: No packages to stow or unstow")
     for name in names:
         for source in (repository / name).rglob("*"):
             if not source.is_file() or source.name == "README.md":
@@ -86,6 +95,23 @@ class DeploymentTests(unittest.TestCase):
         identifier = d.apply(self.preview(), self.store)
         d.undo(identifier, d.preview_undo(identifier, self.store), self.store)
         self.assertFalse(d.present(self.file))
+
+    def test_multiple_packages_with_spaces_in_paths(self):
+        repository = self.repo.parent / "dotfiles with spaces"
+        self.repo.rename(repository)
+        self.repo = repository
+        second = self.repo / "ghostty/.config/ghostty/config"
+        second.parent.mkdir(parents=True)
+        second.write_text("terminal settings")
+        plan = d.preview(self.repo, self.target, ["zsh", "ghostty"])
+        self.assertEqual(len(plan["entries"]), 2)
+        identifier = d.apply(plan, self.store)
+        ghostty = self.target / ".config/ghostty/config"
+        self.assertTrue(self.file.is_symlink())
+        self.assertEqual(ghostty.read_text(), "terminal settings")
+        d.undo(identifier, d.preview_undo(identifier, self.store), self.store)
+        self.assertFalse(d.present(self.file))
+        self.assertFalse(d.present(ghostty))
 
     def test_preexisting_correct_link_is_not_removed(self):
         self.file.parent.mkdir(parents=True)
