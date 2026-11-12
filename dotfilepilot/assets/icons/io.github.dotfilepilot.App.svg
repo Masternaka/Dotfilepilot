@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>Dotfilepilot — Dossier lié</title>
+  <defs>
+    <linearGradient id="back" x1=".12" y1="0" x2=".8" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#095cff"/>
+      <stop offset="1" stop-color="#051d87"/>
+    </linearGradient>
+    <linearGradient id="front" x1=".12" y1="0" x2=".85" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#1476ff"/>
+      <stop offset=".26" stop-color="#0649ed"/>
+      <stop offset="1" stop-color="#061a93"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#65b9ff" stop-opacity=".8"/>
+      <stop offset=".22" stop-color="#1269ff" stop-opacity=".1"/>
+      <stop offset="1" stop-color="#04165a" stop-opacity=".3"/>
+    </linearGradient>
+  </defs>
+  <path d="M29 82V45Q29 24 51 24H99Q108 24 115 33L130 46H208Q230 46 230 67V92Z"
+        fill="url(#back)" stroke="#1060e5" stroke-width="1"/>
+  <path d="M58 65H207Q235 65 235 94V186Q235 214 208 214H55Q27 214 27 186V97Q27 65 58 65Z"
+        fill="url(#front)" stroke="url(#rim)" stroke-width="2"/>
+  <!-- Two open links keep the white interlocking mark legible at small sizes. -->
+  <g fill="none" stroke="#fff" stroke-width="14" stroke-linejoin="round">
+    <path d="M119 119Q126 103 145 103H166C183 103 190 114 190 128S180 147 166 147H139Q118 147 116 133"/>
+    <path d="M140 165Q134 179 117 179H96C79 179 71 168 71 154S81 129 98 129H122Q143 129 146 143"/>
+  </g>
+</svg>

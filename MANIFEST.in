@@ -1,8 +1,9 @@
 include README.md AGENTS.md Makefile pyproject.toml MANIFEST.in .gitignore
 recursive-include dotfilepilot *.py
+recursive-include dotfilepilot/assets/icons *.svg *.png
 recursive-include tests *.py
 recursive-include scripts *.py
-recursive-include docs *.md
+recursive-include docs *.md *.png
 global-exclude *.py[cod] .DS_Store
 prune build
 prune dist

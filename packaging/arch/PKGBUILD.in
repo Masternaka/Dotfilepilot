@@ -25,5 +25,18 @@ package() {
     cd "${srcdir}/${pkgname}-${pkgver}"
     python -m installer --destdir="$pkgdir" dist/*.whl
     install -Dm644 packaging/arch/dotfilepilot.desktop \
-        "${pkgdir}/usr/share/applications/dotfilepilot.desktop"
+        "${pkgdir}/usr/share/applications/io.github.dotfilepilot.App.desktop"
+    local icons="dotfilepilot/assets/icons"
+    local icon_name="io.github.dotfilepilot.App"
+    install -Dm644 "${icons}/${icon_name}.svg" \
+        "${pkgdir}/usr/share/icons/hicolor/scalable/apps/${icon_name}.svg"
+    install -Dm644 "${icons}/${icon_name}-symbolic.svg" \
+        "${pkgdir}/usr/share/icons/hicolor/symbolic/apps/${icon_name}-symbolic.svg"
+    install -Dm644 "${icons}/${icon_name}.png" \
+        "${pkgdir}/usr/share/icons/hicolor/512x512/apps/${icon_name}.png"
+    local size
+    for size in 16 24 32 48 64 128 256 1024; do
+        install -Dm644 "${icons}/${size}x${size}/${icon_name}.png" \
+            "${pkgdir}/usr/share/icons/hicolor/${size}x${size}/apps/${icon_name}.png"
+    done
 }

@@ -33,6 +33,9 @@ def check(directory):
         for path in (ROOT / 'dotfilepilot').rglob('*.py'):
             if wheel.read(path.relative_to(ROOT).as_posix()) != path.read_bytes():
                 raise ValueError('Source différente dans le wheel : ' + str(path))
+        for path in (ROOT / 'dotfilepilot/assets/icons').rglob('*'):
+            if path.is_file() and wheel.read(path.relative_to(ROOT).as_posix()) != path.read_bytes():
+                raise ValueError('Icône absente ou différente dans le wheel : ' + str(path))
         if any(name.startswith(('tests/', 'scripts/', 'docs/')) for name in names):
             raise ValueError('Le wheel contient des fichiers réservés au développement.')
     required = [ROOT / name for name in ('README.md', 'AGENTS.md', 'Makefile', 'pyproject.toml', 'MANIFEST.in', '.gitignore')]
@@ -40,6 +43,8 @@ def check(directory):
                                              ('scripts', '*.py'), ('docs', '*.md'))
                  for path in (ROOT / folder).rglob(pattern)]
     required += [path for folder in ('.github', 'packaging')
+                 for path in (ROOT / folder).rglob('*') if path.is_file()]
+    required += [path for folder in ('dotfilepilot/assets/icons', 'docs/images')
                  for path in (ROOT / folder).rglob('*') if path.is_file()]
     with tarfile.open(sources[0], 'r:gz') as archive:
         roots = {name.split('/')[0] for name in archive.getnames()}

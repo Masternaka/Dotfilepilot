@@ -39,6 +39,12 @@ Examiner la transaction proposée avant de confirmer. Le paquet déclare `python
 
 Installer l’application ne clone aucun dépôt et n’active aucune configuration. Ces opérations se demandent ensuite séparément dans l’application.
 
+## Icône et lanceur
+
+La recette installe le lanceur sous `/usr/share/applications/io.github.dotfilepilot.App.desktop` avec `Icon=io.github.dotfilepilot.App`, en cohérence avec l’identifiant GTK. Les icônes couleur et symbolique sont installées dans `hicolor`, avec neuf tailles PNG de 16 à 1024 pixels. Les mêmes assets sont embarqués dans le wheel pour permettre leur chargement depuis le paquet Python, sans installation manuelle d’icône sur le bureau. L’original de conception reste dans les sources et la documentation, hors du wheel.
+
+Voir la [fiche de l’icône](icone.md) pour les fichiers, la provenance et les limites de validation. Le changement du nom du lanceur permet son association avec l’identifiant de l’application ; cette association reste à vérifier sur le bureau cible après une installation autorisée du paquet.
+
 ## État actuel
 
 Le workflow, les scripts de contrôle, la recette Arch et le lanceur sont présents dans le dépôt local. Aucun push ni lancement GitHub Actions n’a été réalisé par l’assistant. La première construction complète, l’installation Arch et les contrôles GTK/Stow restent à confirmer sur les runners.

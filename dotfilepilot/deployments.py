@@ -184,9 +184,15 @@ def apply(plan, store=None):
             raise PilotError("L’état a changé depuis l’aperçu. Recommencer l’analyse.")
         if all(item["status"] == "actif" for item in plan["entries"]):
             return "Configurations déjà actives ; aucune modification."
+        # Rename cannot cross filesystems. Check every conflict before moving any.
+        device = store.stat().st_dev
+        for item in plan["entries"]:
+            if item["status"] == "sauvegarder" and Path(item["target"]).lstat().st_dev != device:
+                raise PilotError("Sauvegarde sur un autre système de fichiers refusée avant intervention : "
+                                 + item["target"] + " → " + str(store))
         journal = store / (datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ-") + uuid.uuid4().hex[:8])
         journal.mkdir(mode=0o700)
-        data = {"plan": plan, "state": "preparation", "records": [], "restored": []}
+        data = {"schema_version": 1, "plan": plan, "state": "preparation", "records": [], "restored": []}
         save(journal, data)
         try:
             for item in plan["entries"]:
@@ -225,13 +231,100 @@ def history(store=None):
                   if not p.is_symlink() and p.is_dir() and (p / "journal.json").is_file())
 
 
-def preview_undo(identifier, store=None):
+def validate_journal(data):
+    """Validate the fields used for recovery, including legacy versionless journals."""
+    def invalid():
+        raise PilotError("Journal incomplet, endommagé ou de version non prise en charge. "
+                         "Aucune restauration effectuée ; conserver le journal et les sauvegardes.")
+
+    def absolute_path(value):
+        return (isinstance(value, str) and "\x00" not in value
+                and Path(value).is_absolute() and ".." not in Path(value).parts)
+
+    def valid_fingerprint(value):
+        if not isinstance(value, list) or not value:
+            return False
+        if value[0] == "absent":
+            return value == ["absent"]
+        if value[0] == "lien":
+            return len(value) == 2 and isinstance(value[1], str) and "\x00" not in value[1]
+        return (len(value) == 3 and value[0] == "fichier"
+                and isinstance(value[1], str) and re.fullmatch(r"[a-f0-9]{64}", value[1])
+                and type(value[2]) is int and 0 <= value[2] <= 0o7777)
+
+    if not isinstance(data, dict):
+        invalid()
+    version = data.get("schema_version", 1)
+    if type(version) is not int or version != 1:
+        invalid()
+    if data.get("state") not in ("preparation", "application", "actif", "interrompu", "annule"):
+        invalid()
+    plan = data.get("plan")
+    if not isinstance(plan, dict) or not absolute_path(plan.get("target")):
+        invalid()
+    if not isinstance(data.get("records"), list) or not isinstance(data.get("restored"), list):
+        invalid()
+    targets, backups = set(), set()
+    root = Path(plan["target"])
+    for record in data["records"] + data["restored"]:
+        if not isinstance(record, dict):
+            invalid()
+        if (not absolute_path(record.get("target")) or not absolute_path(record.get("source"))
+                or not valid_fingerprint(record.get("before")) or "backup" not in record):
+            invalid()
+        target = Path(record["target"])
+        if root not in target.parents or target in targets:
+            invalid()
+        targets.add(target)
+        backup = record["backup"]
+        if backup is not None:
+            if (not isinstance(backup, str) or not re.fullmatch(r"[0-9]+\.backup", backup)
+                    or backup in backups or record["before"] == ["absent"]):
+                invalid()
+            backups.add(backup)
+        elif record["before"] != ["absent"]:
+            invalid()
+
+
+def read_journal(identifier, store=None):
+    """Read a validated journal without probing or modifying deployment targets."""
     if not re.fullmatch(r"[0-9]{8}T[0-9]{6}Z-[a-f0-9]{8}", identifier):
         raise PilotError("Identifiant de déploiement invalide.")
     journal = Path(store or state_root()) / identifier
     if journal.is_symlink() or (journal / "journal.json").is_symlink():
         raise PilotError("Journal symbolique refusé.")
-    data = json.loads((journal / "journal.json").read_text())
+    try:
+        data = json.loads((journal / "journal.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise PilotError("Journal illisible ; aucune restauration effectuée : " + str(journal)) from error
+    validate_journal(data)
+    return data
+
+
+def history_details(store=None):
+    """Summaries for the GUI; a damaged journal must not hide the other entries."""
+    entries = []
+    for identifier in reversed(history(store)):
+        entry = {"identifier": identifier, "error": None}
+        try:
+            data = read_journal(identifier, store)
+            date = datetime.strptime(identifier[:16], "%Y%m%dT%H%M%SZ")
+            plan = data["plan"]
+            if (not isinstance(plan.get("repository"), str)
+                    or not isinstance(plan.get("packages"), list)
+                    or not all(isinstance(name, str) for name in plan["packages"])):
+                raise PilotError("Métadonnées du déploiement incomplètes.")
+            entry.update(date=date.strftime("%Y-%m-%d %H:%M:%S UTC"), state=data["state"],
+                         repository=plan["repository"], target=plan["target"], packages=plan["packages"])
+        except (PilotError, ValueError) as error:
+            entry["error"] = str(error)
+        entries.append(entry)
+    return entries
+
+
+def preview_undo(identifier, store=None):
+    data = read_journal(identifier, store)
+    journal = Path(store or state_root()) / identifier
     if data["state"] == "annule":
         raise PilotError("Déploiement déjà annulé.")
     target_root = Path(data["plan"]["target"])
@@ -244,9 +337,8 @@ def preview_undo(identifier, store=None):
         safe_parents(target, target_root)
         if present(target) and not (target.is_symlink() and target.resolve() == Path(record["source"])):
             # Crash before moving a conflict: that original file remains safe.
-            if record["backup"] and fingerprint(target) == record["before"]:
-                continue
-            raise PilotError("Fichier modifié depuis le déploiement, annulation bloquée : " + str(target))
+            if not (record["backup"] and fingerprint(target) == record["before"]):
+                raise PilotError("Fichier modifié depuis le déploiement, annulation bloquée : " + str(target))
         if record["backup"]:
             backup = journal / record["backup"]
             if backup.parent != journal:
@@ -268,14 +360,18 @@ def undo(identifier, reviewed, store=None):
         while data["records"]:
             record = data["records"][-1]
             target = Path(record["target"])
-            if target.is_symlink() and target.resolve() == Path(record["source"]):
-                target.unlink()
-            if record["backup"] and present(journal / record["backup"]):
-                backup = journal / record["backup"]
-                if backup.is_symlink():
-                    target.symlink_to(os.readlink(backup))
-                else:
-                    shutil.copy2(backup, target, follow_symlinks=False)
+            # A crash may occur after restoration but before saving this record.
+            # Never recreate a restored symlink or overwrite an original already in place.
+            restored = bool(record["backup"] and present(target) and fingerprint(target) == record["before"])
+            if not restored:
+                if target.is_symlink() and target.resolve() == Path(record["source"]):
+                    target.unlink()
+                if record["backup"] and present(journal / record["backup"]):
+                    backup = journal / record["backup"]
+                    if backup.is_symlink():
+                        target.symlink_to(os.readlink(backup))
+                    else:
+                        shutil.copy2(backup, target, follow_symlinks=False)
             data["restored"].append(data["records"].pop())
             save(journal, data)
         data["state"] = "annule"

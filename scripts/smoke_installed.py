@@ -17,6 +17,11 @@ def main():
         raise RuntimeError('Le test doit charger le paquet installé, pas les sources.')
     if metadata.version('dotfilepilot') != dotfilepilot.__version__:
         raise RuntimeError('Versions du module et du paquet incohérentes.')
+    icons = Path(dotfilepilot.__file__).parent / 'assets/icons'
+    for name in ('io.github.dotfilepilot.App.svg', 'io.github.dotfilepilot.App-symbolic.svg',
+                 'io.github.dotfilepilot.App.png'):
+        if not (icons / name).is_file() or not (icons / name).stat().st_size:
+            raise RuntimeError('Icône absente du paquet installé : ' + name)
     environment = dict(os.environ)
     environment.pop('PYTHONPATH', None)
     environment.pop('PYTHONHOME', None)

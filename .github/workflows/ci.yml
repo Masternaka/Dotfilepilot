@@ -150,7 +150,9 @@ jobs:
         run: |
           pacman -U --noconfirm "$RUNNER_TEMP/dotfilepilot-arch/"*.pkg.tar.zst
           cd "$RUNNER_TEMP"
-          desktop-file-validate /usr/share/applications/dotfilepilot.desktop
+          desktop-file-validate /usr/share/applications/io.github.dotfilepilot.App.desktop
+          test -s /usr/share/icons/hicolor/scalable/apps/io.github.dotfilepilot.App.svg
+          test -s /usr/share/icons/hicolor/512x512/apps/io.github.dotfilepilot.App.png
           /usr/bin/python -I -B "$GITHUB_WORKSPACE/scripts/smoke_installed.py"
       - name: Préparer les fichiers téléchargeables
         run: |

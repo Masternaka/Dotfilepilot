@@ -15,3 +15,6 @@ dotfilepilot = "dotfilepilot.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["dotfilepilot*"]
+
+[tool.setuptools.package-data]
+dotfilepilot = ["assets/icons/*.svg", "assets/icons/*.png", "assets/icons/*/*.png"]

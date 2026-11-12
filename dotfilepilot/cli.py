@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 
 from . import __version__, deployments as deploy
+from .monitoring import current_state
+from .git_status import repository_status
 from .system import (PilotError, clone, clone_plan, diagnostic, install,
                      installation_plan, require_arch)
 
@@ -40,6 +42,9 @@ def parser():
     activation.add_argument("--cible", type=Path, default=Path.home())
     activation.add_argument("--appliquer", action="store_true")
     commands.add_parser("historique", help="Lister les déploiements locaux")
+    commands.add_parser("etat", help="Observer les liens journalisés sans les modifier")
+    git_status = commands.add_parser("etat-git", help="Consulter la branche, la révision et les changements locaux")
+    git_status.add_argument("depot", type=Path)
     revert = commands.add_parser("annuler", help="Préparer ou annuler un déploiement")
     revert.add_argument("identifiant")
     revert.add_argument("--appliquer", action="store_true")
@@ -58,6 +63,10 @@ def main(argv=None):
             show(deploy.packages(args.depot))
         elif args.command == "historique":
             show(deploy.history())
+        elif args.command == "etat":
+            show(current_state())
+        elif args.command == "etat-git":
+            show(repository_status(args.depot))
         else:
             action = None
             if args.command == "dependances":
