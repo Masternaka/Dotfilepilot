@@ -114,7 +114,7 @@ jobs:
           retention-days: 30
 
   arch:
-    name: Paquet Arch pour Omarchy
+    name: Paquet pour Arch Linux et ses dérivées
     needs: package
     runs-on: ubuntu-24.04
     container: archlinux:base-devel

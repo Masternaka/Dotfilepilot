@@ -2,9 +2,11 @@
 
 ## Objectif retenu
 
-Créer un gestionnaire de dotfiles pour Omarchy / Arch Linux, sur le modèle de Sambapilot : moteur Python commun, terminal autonome et interface GTK4. Le choix Arch a été confirmé le 9 novembre 2026.
+Créer un gestionnaire de dotfiles pour Arch Linux et ses distributions dérivées, sur le modèle de Sambapilot : moteur Python commun, terminal autonome et interface GTK4. Le choix de la famille Arch a été confirmé ; le périmètre vise ses différentes distributions, sans dépendre d’un bureau particulier.
 
 L’utilisateur doit pouvoir préparer sa machine, cloner son dépôt, choisir ses configurations, consulter les conflits, activer les liens et revenir à son état précédent pour les fichiers concernés.
+
+Le moteur accepte Linux avec `ID=arch` ou `arch` comme élément de `ID_LIKE` dans `os-release`, sans liste de noms de distributions. Le fichier `/usr/lib/os-release` sert de repli uniquement si `/etc/os-release` est absent. Le contenu est analysé comme des valeurs déclaratives avec gestion des guillemets, sans exécution de shell. Une identité illisible, mal formée ou non reconnue ne permet pas d’intervention. La préparation des dépendances conserve pacman ; les noms et versions disponibles dans chaque distribution restent à valider sur leurs environnements réels.
 
 ## Architecture présente
 
@@ -69,9 +71,34 @@ Le code constitue une version de développement, pas une version prête pour les
 
 Le mode utilisateur vise le dossier personnel. Les modèles destinés à `/etc`, comme Samba et pacman, exigent un futur parcours séparé. Aucun privilège administrateur n’est utilisé pour Stow. Les répertoires vides créés par Stow ne sont pas supprimés lors de l’annulation.
 
+## Évolution possible vers d’autres distributions Linux
+
+**Proposition future, non implémentée.** La structure du projet constitue une base réutilisable pour prendre en charge d’autres familles Linux, mais leur compatibilité n’est pas acquise. Le périmètre actuel reste Arch Linux et ses distributions dérivées.
+
+| Partie | Situation actuelle | Adaptation nécessaire |
+| --- | --- | --- |
+| Déploiement, sauvegardes et annulation | Moteur largement réutilisable sur Linux, fondé sur Python et GNU Stow. | Valider les chemins, permissions, conflits et reprises dans chaque environnement cible. |
+| Terminal et interface GTK4 | Deux interfaces partageant le même moteur ; GTK reste facultatif pour le terminal. | Adapter les indications de préparation et valider les composants graphiques disponibles. |
+| Détection et autorisation | Les interventions sont réservées à la famille Arch, identifiée par `os-release`. | Distinguer l’identité du système de ses capacités et des familles réellement prises en charge. |
+| Installation des dépendances | Commandes pacman et noms de paquets propres à cette famille. | Prévoir des adaptateurs de gestionnaires de paquets et leurs correspondances de dépendances. |
+| Distribution de l’application | Archives Python et recette de paquet Arch. | Préparer et valider le conditionnement et le lanceur adaptés aux nouvelles familles. |
+
+Pour envisager Debian, Ubuntu, Linux Mint ou Fedora, séparer les particularités de distribution du moteur commun : détection, gestionnaire de paquets, noms des dépendances et conditionnement. Le terminal et GTK devront continuer à réutiliser les mêmes validations. La disponibilité d’un gestionnaire de paquets ne suffit pas à déclarer une distribution compatible.
+
+Une mise en œuvre progressive pourrait suivre ces étapes :
+
+1. Définir les responsabilités des adaptateurs système en conservant le fonctionnement Arch existant.
+2. Ajouter une seule nouvelle famille, avec ses noms de paquets et ses commandes de diagnostic et d’installation explicites.
+3. Tester les plans, les refus et la gestion des erreurs sur des données fictives, puis valider les interventions dans un environnement jetable autorisé.
+4. Valider les parcours réels du terminal, de GTK, des sauvegardes et de l’annulation, ainsi que les paquets installés, avant d’annoncer la prise en charge.
+
+Conserver le parcours aperçu, confirmation, revalidation, sauvegarde, application et vérification. Aucun adaptateur ne doit ajouter d’installation au démarrage ni contourner les confirmations. Les noms de paquets et les commandes des nouvelles familles restent à rechercher et à vérifier lors de leur implémentation.
+
+Cette proposition ne modifie pas les restrictions du code, n’ajoute aucune compatibilité macOS et n’autorise aucune installation sur la machine de développement. Elle est consignée uniquement pour une évolution éventuelle, sans changement applicatif ni test exécuté.
+
 ## Suite proposée
 
-- Valider l’intégration Stow et les parcours GTK sur une machine Arch de test, puis Omarchy.
+- Valider l’intégration Stow et les parcours GTK sur Arch Linux puis sur des distributions dérivées identifiées.
 - Tester le clonage réseau et l’installation des dépendances dans une machine virtuelle jetable.
 - Valider la construction du paquet Arch et son lanceur de bureau, désormais préparés dans la chaîne GitHub.
 - Valider le tableau GTK d’activation : lisibilité des chemins longs, filtres, clavier et volumes importants.

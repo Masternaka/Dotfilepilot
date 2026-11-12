@@ -8,6 +8,6 @@ def launch():
         from .gtk_app import Application
     except (ImportError, ValueError) as error:
         print("GTK4 / PyGObject indisponible : " + str(error))
-        print("Sur Arch : lancer d’abord python3 -m dotfilepilot dependances --appliquer")
+        print("Sur Arch Linux et ses dérivées : lancer d’abord python3 -m dotfilepilot dependances --appliquer")
         return 3
     return Application().run([])

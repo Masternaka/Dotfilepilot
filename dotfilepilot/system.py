@@ -4,6 +4,7 @@ import os
 import platform
 from pathlib import Path
 import shutil
+import shlex
 import subprocess
 import tempfile
 from urllib.parse import urlsplit
@@ -30,17 +31,37 @@ def run(command, cwd=None, capture=True):
 def is_arch():
     if platform.system() != "Linux":
         return False
-    try:
-        values = dict(line.split("=", 1) for line in Path("/etc/os-release").read_text().splitlines()
-                      if "=" in line)
-    except OSError:
+    content = None
+    for release in ("/etc/os-release", "/usr/lib/os-release"):
+        try:
+            content = Path(release).read_text(encoding="utf-8")
+            break
+        except FileNotFoundError:
+            continue
+        except (OSError, UnicodeError):
+            return False
+    if content is None:
         return False
-    return values.get("ID", "").strip('"') == "arch"
+    try:
+        values = {}
+        for line in content.splitlines():
+            if "=" not in line or line.lstrip().startswith("#"):
+                continue
+            key, value = line.split("=", 1)
+            if key.strip() not in ("ID", "ID_LIKE"):
+                continue
+            parsed = shlex.split(value, comments=True)
+            if len(parsed) != 1:
+                return False
+            values[key.strip()] = parsed[0]
+    except ValueError:
+        return False
+    return values.get("ID") == "arch" or "arch" in values.get("ID_LIKE", "").split()
 
 
 def require_arch():
     if not is_arch():
-        raise PilotError("Les interventions sont réservées à Arch Linux / Omarchy.")
+        raise PilotError("Les interventions sont réservées à Arch Linux et à ses distributions dérivées.")
     if os.geteuid() == 0:
         raise PilotError("Lancer Dotfilepilot avec votre compte utilisateur, sans sudo.")
 

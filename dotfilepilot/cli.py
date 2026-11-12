@@ -23,7 +23,7 @@ def confirm():
 
 
 def parser():
-    root = argparse.ArgumentParser(description="Dotfilepilot — configurations Omarchy / Arch Linux")
+    root = argparse.ArgumentParser(description="Dotfilepilot — configurations pour Arch Linux et ses dérivées")
     root.add_argument("--version", action="version", version=__version__)
     commands = root.add_subparsers(dest="command", required=True)
     commands.add_parser("diagnostic", help="Consulter les composants disponibles")

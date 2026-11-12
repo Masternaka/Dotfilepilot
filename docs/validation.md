@@ -1,5 +1,11 @@
 # Validation et reprise
 
+## Ciblage Arch Linux et distributions dérivées — 12 novembre 2026
+
+Les textes, métadonnées, instructions du dépôt et intitulés de distribution visent désormais Arch Linux et ses distributions dérivées. Le contrôle du moteur accepte `ID=arch` ou le mot exact `arch` dans `ID_LIKE`, sous Linux. Les valeurs entre guillemets sont analysées sans shell ; `/usr/lib/os-release` est lu seulement si `/etc/os-release` est absent. Les identités non reconnues ou illisibles restent refusées, et pacman reste nécessaire pour la préparation des dépendances.
+
+Quatre tests ont été ajoutés pour les identités Arch et dérivées, les valeurs non apparentées ou mal formées, le refus hors Linux et les erreurs ou replis de lecture. **Ces tests ne sont pas exécutés dans cette session** : aucune application, vérification Python ou installation lancée sur le Mac. Seuls les fichiers et leurs différences sont relus. La compatibilité réelle doit être consignée par distribution et version ; le conteneur Arch de CI ne valide pas à lui seul toutes les dérivées. Aucun commit ni push.
+
 ## Relecture de stabilisation — 12 novembre 2026
 
 Relecture du moteur d’annulation, de la préparation différée des aperçus, des tests associés et de l’intégration de l’icône. Aucun nouveau blocage identifié dans ces passages par cette lecture ; aucune validation d’exécution n’en découle.
@@ -55,7 +61,7 @@ Le bouton **Consulter l’état Git local** de la page Dépôt et la commande `e
 
 `make test` : **88 tests découverts, 72 réussis et 16 ignorés** (1 Stow, 15 GTK). Onze nouveaux tests utilisent Git local déjà disponible et des dépôts temporaires fictifs, ainsi que des simulations ciblées d’erreurs. Ils couvrent les branches, la révision détachée, les fichiers modifiés/ajoutés/supprimés/non suivis/ignorés, les noms atypiques, les erreurs de dossier, l’absence de réécriture de l’index et les erreurs Git. Des filtres externes et un moniteur de fichiers fictifs sont configurés pour vérifier qu’ils ne sont pas exécutés pendant la consultation. Les conflits et renommages du parseur sont vérifiés avec une réponse porcelain fictive ; aucun conflit réel n’est revendiqué. Les transports bloqués et les délais sont contrôlés par simulation. Deux nouveaux tests GTK couvrent l’affichage et le rejet d’un résultat devenu obsolète ; ils restent ignorés localement. `make check` réussit (22 fichiers Python, liens Markdown et espaces Git), ainsi que l’aide du terminal.
 
-Les tests créent des commits uniquement dans leurs dépôts temporaires. Aucun commit ou push du projet, aucune installation, aucune consultation réseau ni modification de configuration personnelle. Le rendu GTK et les essais Arch/Omarchy restent à effectuer. La neutralisation des filtres peut modifier les différences affichées et est signalée dans le rapport. Le rapport exclut les sous-modules et ne garantit pas un instantané atomique en présence de changements simultanés. Première reprise : exécuter la suite native dans l’environnement équipé puis vérifier la consultation depuis la page Dépôt, avec changements locaux et changement de chemin pendant l’analyse.
+Les tests créent des commits uniquement dans leurs dépôts temporaires. Aucun commit ou push du projet, aucune installation, aucune consultation réseau ni modification de configuration personnelle. Le rendu GTK et les essais sur Arch Linux et ses dérivées restent à effectuer. La neutralisation des filtres peut modifier les différences affichées et est signalée dans le rapport. Le rapport exclut les sous-modules et ne garantit pas un instantané atomique en présence de changements simultanés. Première reprise : exécuter la suite native dans l’environnement équipé puis vérifier la consultation depuis la page Dépôt, avec changements locaux et changement de chemin pendant l’analyse.
 
 ## État actuel en lecture seule — 12 novembre 2026
 
@@ -63,7 +69,7 @@ Nouvelle page GTK **État actuel**, avec actualisation explicite en arrière-pla
 
 `make test` : **75 tests découverts, 61 réussis et 14 ignorés** (1 Stow, 13 GTK). Treize nouveaux tests ordinaires couvrent les observations sur fixtures temporaires avec Stow simulé, les sources disparues, les remplacements, les redirections, les accès refusés simulés, les boucles symboliques, les annulations, les interruptions, les journaux invalides et superposés, la présentation et la commande terminal. Les tests vérifient aussi l’absence de création du dossier d’état et de modification des journaux observés. Deux nouveaux tests GTK couvrent l’actualisation, l’invalidation de l’accord et le rejet d’un résultat obsolète ; ils restent ignorés localement. `make check` réussit (20 fichiers Python, liens Markdown et espaces Git), ainsi que l’aide du terminal.
 
-Aucune observation des configurations personnelles réalisée. Aucun logiciel installé, aucune configuration réelle activée, aucun commit ni push. Rendu GTK, parcours clavier, comportement sur gros historiques et essais Stow/Omarchy réels restent à valider plus tard. Première reprise : exécuter la suite native dans un environnement équipé, puis vérifier l’actualisation avant et après un déploiement fictif, son annulation et le déplacement de son dépôt. Le rapport ne contrôle pas le contenu des configurations et ne constitue pas un instantané atomique.
+Aucune observation des configurations personnelles réalisée. Aucun logiciel installé, aucune configuration réelle activée, aucun commit ni push. Rendu GTK, parcours clavier, comportement sur gros historiques et essais Stow réels sur Arch et ses dérivées restent à valider plus tard. Première reprise : exécuter la suite native dans un environnement équipé, puis vérifier l’actualisation avant et après un déploiement fictif, son annulation et le déplacement de son dépôt. Le rapport ne contrôle pas le contenu des configurations et ne constitue pas un instantané atomique.
 
 ## Tableau d’aperçu d’activation — 12 novembre 2026
 
@@ -91,7 +97,7 @@ Corrections locales du moteur et de GTK :
 
 `make test` : 44 tests découverts, **38 réussis et 6 ignorés** (1 Stow, 5 GTK). Les nouveaux tests ordinaires couvrent le refus de sauvegardes entre systèmes de fichiers simulés, les journaux endommagés et la restauration depuis un ancien journal. Trois tests GTK supplémentaires couvrent le résultat, l’erreur et l’analyse obsolète après modification d’un champ ; ils sont ignorés localement et restent à exécuter dans l’environnement natif prévu. `make check` et l’aide du terminal réussissent.
 
-Aucune installation ni configuration personnelle modifiée. Aucun essai réel entre systèmes de fichiers, rendu GTK, essai Stow réel ou workflow GitHub effectué dans cette session. Prochaine validation : exécuter la suite native sur une machine de test équipée, puis suivre la recette Omarchy ci-dessous. La vue de l’état actuel, l’historique sélectionnable et le tableau d’aperçu sont décrits ci-dessus.
+Aucune installation ni configuration personnelle modifiée. Aucun essai réel entre systèmes de fichiers, rendu GTK, essai Stow réel ou workflow GitHub effectué dans cette session. Prochaine validation : exécuter la suite native sur une machine de test équipée, puis suivre la recette Arch et dérivées ci-dessous. La vue de l’état actuel, l’historique sélectionnable et le tableau d’aperçu sont décrits ci-dessus.
 
 ## État au 9 novembre 2026
 
@@ -111,9 +117,9 @@ La commande produite plaçait `--` entre `--stow` et les noms des configurations
 
 Une reproduction locale avec le module Perl `Getopt::Long`, déjà disponible, confirme que `--stow -- zsh` laisse la liste des paquets vide alors que `--stow zsh` transmet `zsh`. Référence : [analyseur de GNU Stow](https://github.com/aspiers/stow/blob/master/bin/stow.in). Ce contrôle n’est pas une exécution de Stow : la reconstruction complète du paquet Arch reste à vérifier lors d’une prochaine exécution GitHub.
 
-## Recette à effectuer sur Arch / Omarchy
+## Recette à effectuer sur Arch Linux et ses dérivées
 
-**Procédure future, non exécutée sur le Mac.** Utiliser un compte de test sur Arch / Omarchy ou une machine virtuelle jetable, avec Python, Git, Stow, GTK4, PyGObject et un affichage déjà disponibles. Si un composant manque, arrêter et préparer séparément son installation après autorisation. Travailler depuis la racine du projet, sans `sudo` pour l’application. Aucun dossier personnel réel ne doit servir de cible.
+**Procédure future, non exécutée sur le Mac.** Utiliser un compte de test sur Arch Linux ou une distribution dérivée, ou une machine virtuelle jetable, avec Python, Git, Stow, GTK4, PyGObject et un affichage déjà disponibles. Si un composant manque, arrêter et préparer séparément son installation après autorisation. Travailler depuis la racine du projet, sans `sudo` pour l’application. Aucun dossier personnel réel ne doit servir de cible.
 
 ### 1. Vérifications automatiques
 

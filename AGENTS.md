@@ -2,7 +2,9 @@
 
 ## Objectif et périmètre
 
-Dotfilepilot est un gestionnaire de fichiers de configuration pour **Omarchy / Arch Linux**, inspiré de Sambapilot. Le terminal et l’interface native **GTK4** partagent le même moteur Python. Conserver Python 3.9 ou ultérieur et un moteur sans dépendance Python externe à l’exécution ; GTK et PyGObject sont facultatifs pour le terminal.
+Dotfilepilot est un gestionnaire de fichiers de configuration pour **Arch Linux et ses distributions dérivées**, inspiré de Sambapilot. Le terminal et l’interface native **GTK4** partagent le même moteur Python. Conserver Python 3.9 ou ultérieur et un moteur sans dépendance Python externe à l’exécution ; GTK et PyGObject sont facultatifs pour le terminal.
+
+Conserver une détection générique de la famille Arch : Linux avec `ID=arch` ou le mot exact `arch` dans `ID_LIKE` du fichier `os-release`. Ne pas limiter l’application à une distribution nommée ni confondre cette identification avec une validation sur toutes les dérivées. La présence de pacman seule ne prouve pas l’appartenance à cette famille.
 
 Le code permet de préparer puis de demander explicitement le clonage d’un dépôt HTTPS, l’installation des composants nécessaires, le déploiement Stow avec sauvegardes et l’annulation d’un déploiement. Contrairement au socle descriptif de Sambapilot, Dotfilepilot contient des fonctions qui peuvent réellement modifier des fichiers : ne jamais les lancer comme de simples diagnostics.
 
@@ -95,7 +97,7 @@ python3 -B scripts/run_tests.py --require-native
 
 La seconde commande exige GTK, un affichage utilisable et Stow ; aucun test natif ne doit être ignoré. Les fixtures doivent rester temporaires et fictives. Ne pas installer les composants ou configurer l’affichage de la machine pour faire passer cette commande sans autorisation.
 
-Rapporter les résultats réellement observés en séparant les tests réussis, les tests ignorés, les contrôles statiques, les commandes simulées, le rendu GTK, les essais Stow réels, le clonage réseau, pacman et les essais sur Omarchy. Une image générée est une maquette, jamais une capture de l’application ni une validation visuelle native.
+Rapporter les résultats réellement observés en séparant les tests réussis, les tests ignorés, les contrôles statiques, les commandes simulées, le rendu GTK, les essais Stow réels, le clonage réseau, pacman et les essais sur Arch Linux ou une dérivée identifiée. Une image générée est une maquette, jamais une capture de l’application ni une validation visuelle native.
 
 ## GitHub et création des paquets
 
@@ -103,7 +105,7 @@ Conserver le fonctionnement décrit dans le [guide de distribution](docs/distrib
 
 - Déclarer les dépendances et le lanceur dans le conditionnement Arch ; ne pas déclencher de clonage ou d’activation de dotfiles lors de l’installation du paquet.
 - Garder cohérentes les versions de `pyproject.toml` et de `dotfilepilot/__init__.py`. Préserver les empreintes des archives, le lien à la révision source et le refus d’écraser un dossier de préparation existant.
-- Distinguer la validation du code, la construction d’une archive, son installation dans le conteneur et son utilisation sur Omarchy. Ne pas annoncer un paquet disponible sans avoir vérifié la réussite du workflow et ses artefacts.
+- Distinguer la validation du code, la construction d’une archive, son installation dans le conteneur et son utilisation sur une distribution Arch identifiée. Ne pas annoncer un paquet disponible sans avoir vérifié la réussite du workflow et ses artefacts.
 - La chaîne conserve des artefacts de développement pendant 30 jours ; elle ne publie pas automatiquement de Release ni de dépôt pacman. Ne pas ajouter de signature, de canal de publication, de clé ou de licence sans décision de l’utilisateur.
 - Ne pas créer de commit, pousser, ouvrir ou fusionner une pull request, créer un tag ou une Release, ni publier un paquet sans demande explicite couvrant l’action et sa cible. Une demande de modification du workflow ne vaut pas demande de publication.
 

@@ -2,9 +2,9 @@
 
 <img src="dotfilepilot/assets/icons/io.github.dotfilepilot.App.png" width="96" height="96" alt="Icône Dotfilepilot : dossier bleu avec deux maillons blancs">
 
-Dotfilepilot facilite l’installation et la gestion des fichiers de configuration sur **Omarchy / Arch Linux**. Le projet reprend l’approche de Sambapilot : un moteur Python partagé par le terminal et une interface graphique GTK4.
+Dotfilepilot facilite l’installation et la gestion des fichiers de configuration sur **Arch Linux et ses distributions dérivées**. Le projet reprend l’approche de Sambapilot : un moteur Python partagé par le terminal et une interface graphique GTK4.
 
-Cette première version de développement propose le clonage d’un dépôt Git HTTPS, la sélection des configurations, les liens GNU Stow, les sauvegardes des conflits et l’annulation d’un déploiement. **Les tests locaux utilisent un Stow simulé ; l’utilisation réelle sur Omarchy reste à valider.**
+Cette première version de développement propose le clonage d’un dépôt Git HTTPS, la sélection des configurations, les liens GNU Stow, les sauvegardes des conflits et l’annulation d’un déploiement. **Les tests locaux utilisent un Stow simulé ; l’utilisation réelle sur Arch Linux et ses dérivées reste à valider.**
 
 ## Fonctions présentes dans le code
 
@@ -31,7 +31,7 @@ python3 -B -m dotfilepilot --help
 python3 -B -m dotfilepilot diagnostic
 ```
 
-Sur **Arch / Omarchy**, examiner les dépendances puis demander leur installation :
+Sur **Arch Linux ou une distribution dérivée**, examiner les dépendances puis demander leur installation :
 
 ```sh
 python3 -B -m dotfilepilot dependances
@@ -67,7 +67,9 @@ python3 -B -m dotfilepilot annuler IDENTIFIANT
 python3 -B -m dotfilepilot annuler IDENTIFIANT --appliquer
 ```
 
-Sans `--appliquer`, les commandes d’intervention produisent seulement un aperçu. Les aperçus d’activation utilisent un dossier temporaire privé pour les liens Stow, sans déplacer les configurations existantes. Les interventions sont bloquées hors Arch Linux, même avec `--appliquer`.
+Sans `--appliquer`, les commandes d’intervention produisent seulement un aperçu. Les aperçus d’activation utilisent un dossier temporaire privé pour les liens Stow, sans déplacer les configurations existantes. Les interventions sont bloquées hors de la famille Arch, même avec `--appliquer`.
+
+La détection exige Linux et un fichier `os-release` indiquant `ID=arch` ou contenant le mot exact `arch` dans `ID_LIKE`. Elle lit `/etc/os-release`, puis `/usr/lib/os-release` si le premier est absent. Aucune liste de distributions n’est imposée. Une identité absente, illisible ou non reconnue reste bloquante ; la présence de pacman seule ne suffit pas. L’installation des dépendances utilise pacman et les dépôts configurés de la distribution. Cette détection ne garantit pas que chaque distribution dérivée et ses versions de paquets ont été testées.
 
 Les liens actifs pointent vers le dépôt : modifier leur contenu dans un éditeur modifie donc les fichiers du dépôt. Ne pas déplacer ni supprimer le clone tant que ses configurations sont actives.
 
@@ -118,13 +120,13 @@ make check
 DOTFILEPILOT_TEST_STOW=1 make test
 ```
 
-Voir le [bilan de validation et la recette Omarchy](docs/validation.md), ainsi que le [cahier des charges et la suite du projet](docs/conception.md).
+Voir le [bilan de validation et la recette Arch et dérivées](docs/validation.md), ainsi que le [cahier des charges et la suite du projet](docs/conception.md).
 
 ## Paquets GitHub
 
 Comme Sambapilot, le workflow GitHub Actions prépare les tests Python, GTK4 et Stow, puis construit les archives Python et un paquet Arch `.pkg.tar.zst`. Les paquets vérifiés seront téléchargeables dans les artefacts de chaque exécution réussie, conservés 30 jours. Le paquet Arch déclare les dépendances et fournit le lanceur graphique.
 
-Le [guide de distribution](docs/distribution.md) décrit le téléchargement et l’installation sur Omarchy. La chaîne est configurée localement ; aucune exécution GitHub ni construction Arch n’a encore été vérifiée.
+Le [guide de distribution](docs/distribution.md) décrit le téléchargement et l’installation sur Arch Linux et ses dérivées. La chaîne est configurée localement ; aucune exécution GitHub ni construction Arch n’a encore été vérifiée.
 
 L’[icône Dossier lié](docs/icone.md) est préparée en SVG et PNG, embarquée avec GTK et déclarée dans le lanceur et le paquet Arch. Son rendu natif et son association dans le menu des applications restent à valider.
 

@@ -10,6 +10,41 @@ from dotfilepilot.system import PilotError
 
 
 class SystemTests(unittest.TestCase):
+    def test_arch_and_derivatives_are_identified_from_os_release(self):
+        for content in ('ID=arch\n', 'ID="arch"\n', "ID='arch'\n",
+                        'ID=cachyos\nID_LIKE=arch\n',
+                        'ID=endeavouros\nID_LIKE="arch"\n',
+                        "ID=manjaro\nID_LIKE='arch linux'\n",
+                        '# ID=debian\nID=example\nID_LIKE="other arch"\n'):
+            with self.subTest(content=content), \
+                    patch.object(system.platform, 'system', return_value='Linux'), \
+                    patch.object(Path, 'read_text', return_value=content):
+                self.assertTrue(system.is_arch())
+
+    def test_unrelated_or_malformed_distributions_are_rejected(self):
+        for content in ('ID=debian\nID_LIKE=ubuntu\n', 'ID=example\nID_LIKE=archlinux\n',
+                        'ID=example\nID_LIKE=march\n', '', 'ID="arch\n',
+                        'ID=example\nID_LIKE="arch linux\n'):
+            with self.subTest(content=content), \
+                    patch.object(system.platform, 'system', return_value='Linux'), \
+                    patch.object(Path, 'read_text', return_value=content):
+                self.assertFalse(system.is_arch())
+
+    def test_non_linux_system_does_not_read_os_release(self):
+        with patch.object(system.platform, 'system', return_value='Darwin'), \
+                patch.object(Path, 'read_text') as read:
+            self.assertFalse(system.is_arch())
+        read.assert_not_called()
+
+    def test_os_release_fallback_and_read_errors(self):
+        with patch.object(system.platform, 'system', return_value='Linux'):
+            with patch.object(Path, 'read_text', side_effect=[FileNotFoundError(), 'ID=arch\n']):
+                self.assertTrue(system.is_arch())
+            for error in (FileNotFoundError(), PermissionError(), UnicodeError()):
+                with self.subTest(error=type(error).__name__), \
+                        patch.object(Path, 'read_text', side_effect=error):
+                    self.assertFalse(system.is_arch())
+
     def test_clone_rejects_unsafe_urls(self):
         for url in ("file:///tmp/repo", "ssh://host/repo", "--upload-pack=bad", "https://user:secret@host/repo",
                     "https://host/repo?token=secret", "https://host/repo#fragment"):
