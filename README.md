@@ -4,7 +4,7 @@
 
 Dotfilepilot facilite l’installation et la gestion des fichiers de configuration sur **Arch Linux, Debian et Fedora classique**, ainsi que les dérivées identifiées par `os-release`. Le projet reprend l’approche de Sambapilot : un moteur Python partagé par le terminal et une interface graphique GTK4.
 
-Cette première version de développement propose le clonage d’un dépôt Git HTTPS, la sélection des configurations, les liens GNU Stow, les sauvegardes des conflits et l’annulation d’un déploiement. **Les adaptateurs des trois familles sont implémentés et testés avec des commandes simulées. La validation native des distributions et des paquets reste à effectuer en CI et sur des machines de test.**
+Cette première version de développement propose le clonage d’un dépôt Git HTTPS, la sélection des configurations, les liens GNU Stow, les sauvegardes des conflits et l’annulation d’un déploiement. **La CI du 13 novembre 2026 a réussi : 120 tests sans aucun test ignoré dans chacun des environnements Arch, Debian 13, Fedora 44 et Ubuntu 24.04, puis construction et installation des trois paquets natifs dans leurs conteneurs. Les essais manuels sur un bureau Linux restent à effectuer.** Voir les [preuves et limites](docs/validation.md#validation-github-actions-du-13-novembre-2026).
 
 ## Fonctions présentes dans le code
 
@@ -18,7 +18,7 @@ Cette première version de développement propose le clonage d’un dépôt Git 
 | Annulation | Retirer les liens journalisés et restaurer les fichiers sauvegardés. | Un fichier remplacé depuis le déploiement bloque l’annulation ; les répertoires vides peuvent rester. |
 | État actuel | Observer à la demande les liens connus des journaux : corrects, cassés, remplacés, absents ou indisponibles. | Lecture seule, sans inventaire global des dotfiles ni contrôle du contenu des fichiers. |
 | État Git | Consulter la branche, la révision et les fichiers modifiés, ajoutés, supprimés ou non suivis. | Lecture locale de la racine du dépôt, sans actualisation distante ; sous-modules ignorés. |
-| GTK4 | Accueil, dépôt, configurations, sauvegardes et aperçu avec accord explicite. | Interface codée, rendu et interactions natifs non testés ici. |
+| GTK4 | Accueil, dépôt, configurations, sauvegardes et aperçu avec accord explicite. | Tests automatisés GTK réussis sous Xvfb ; rendu sur bureau réel, ergonomie et tâches avec threads réels à valider manuellement. |
 
 L’installation de Stow et Git concerne les besoins de Dotfilepilot. Installer Ghostty, Zsh ou les autres applications correspondant aux configurations reste une action distincte, à ajouter ensuite.
 
@@ -79,7 +79,7 @@ La détection exige Linux. Elle lit `/etc/os-release`, puis `/usr/lib/os-release
 
 Les sondes lisent les bases de paquets locales. Une sonde en échec n’est jamais interprétée comme une liste de paquets manquants. L’application ne rafraîchit pas automatiquement les dépôts et ne lance pas de mise à jour générale du système. GTK et PyGObject restent facultatifs pour utiliser le terminal, même si la préparation des dépendances et les paquets natifs proposent l’interface complète.
 
-Ubuntu et Linux Mint peuvent être identifiés comme dérivés de Debian ; cela ne valide pas toutes leurs versions. Fedora Workstation et les installations classiques avec DNF constituent la cible Fedora ; Silverblue, Kinoite, CoreOS et les autres variantes Atomic / OSTree restent exclues. La matrice de CI prévue couvre Arch, Debian 13, Fedora 44 et Ubuntu 24.04. Sa réussite et les essais sur bureau réel restent à confirmer.
+Ubuntu et Linux Mint peuvent être identifiés comme dérivés de Debian ; cela ne valide pas toutes leurs versions. Fedora Workstation et les installations classiques avec DNF constituent la cible Fedora ; Silverblue, Kinoite, CoreOS et les autres variantes Atomic / OSTree restent exclues. La matrice de CI a réussi sur Arch, Debian 13, Fedora 44 et Ubuntu 24.04 à la révision `5007488`. Cette preuve concerne les environnements de CI ; les essais sur bureau réel restent à effectuer.
 
 Les liens actifs pointent vers le dépôt : modifier leur contenu dans un éditeur modifie donc les fichiers du dépôt. Ne pas déplacer ni supprimer le clone tant que ses configurations sont actives.
 
@@ -117,7 +117,7 @@ Les journaux et sauvegardes sont conservés dans `$XDG_STATE_HOME/dotfilepilot`,
 
 Avant le premier déplacement, l’activation vérifie que tous les conflits à sauvegarder résident sur le même système de fichiers que le dossier d’état. Sinon, elle refuse l’intervention : les sauvegardes par déplacement entre systèmes de fichiers ne sont pas prises en charge. L’annulation vérifie aussi la structure et la version du journal ; un journal illisible ou incomplet bloque la restauration sans modifier les configurations. Les anciens journaux sans numéro de version restent acceptés si leur structure est valide.
 
-Une sauvegarde présente est contrôlée même si le fichier ou le lien original est déjà revenu en place. Une sauvegarde altérée bloque l’annulation. Après une interruption entre restauration et écriture du journal, une destination qui correspond déjà à l’original est conservée et son étape peut être enregistrée sans la recopier ni recréer son lien. Ces corrections sont codées ; leurs nouveaux tests de régression restent à exécuter.
+Une sauvegarde présente est contrôlée même si le fichier ou le lien original est déjà revenu en place. Une sauvegarde altérée bloque l’annulation. Après une interruption entre restauration et écriture du journal, une destination qui correspond déjà à l’original est conservée et son étape peut être enregistrée sans la recopier ni recréer son lien. Les tests de régression de ces corrections ont réussi dans la CI du 13 novembre 2026 ; ils simulent les interruptions et ne garantissent pas une reprise après toute panne réelle.
 
 Si Stow échoue, le journal reste dans l’état `interrompu`. Consulter `historique`, examiner `annuler IDENTIFIANT`, puis demander l’annulation. Aucun retour arrière silencieux n’est effectué. Les copies sensibles restent locales : ne pas les ajouter à Git. Cette reprise est testée pour les erreurs simulées ; elle ne constitue pas une garantie contre toute panne disque ou coupure d’alimentation.
 
@@ -130,14 +130,14 @@ make check
 DOTFILEPILOT_TEST_STOW=1 make test
 ```
 
-Voir le [bilan de validation et la recette Linux](docs/validation.md), ainsi que le [cahier des charges et la suite du projet](docs/conception.md).
+Voir le [bilan de validation](docs/validation.md) et la [recette courte pour les essais Linux](docs/validation.md#recette-courte-avec-le-paquet-installé), ainsi que le [cahier des charges et la suite du projet](docs/conception.md).
 
 ## Paquets GitHub
 
 Le workflow GitHub Actions prépare les tests Python, GTK4 et Stow dans les environnements Linux prévus, puis construit les archives Python et les paquets Arch `.pkg.tar.zst`, Debian `.deb` et Fedora `.rpm`. Chaque construction de paquet réutilise l’archive source vérifiée et s’exécute sans privilèges ; l’installation de contrôle se fait dans le conteneur jetable. Les artefacts des exécutions réussies sont conservés 30 jours.
 
-Le [guide de distribution](docs/distribution.md) décrit les recettes, les dépendances, les lanceurs et les limites. La chaîne est configurée localement ; aucune nouvelle exécution GitHub ni construction de paquet natif n’a été vérifiée dans cette adaptation. Les recettes sont des préparations de développement, sans choix de licence ni publication publique.
+Le [guide de distribution](docs/distribution.md) décrit les recettes, les dépendances, les lanceurs et les limites. L’[exécution n° 5](https://github.com/Masternaka/Dotfilepilot/actions/runs/43431439343) a réussi ses 11 jobs et produit les archives Python et les trois paquets natifs. Les artefacts de développement sont disponibles dans cette exécution, avec expiration annoncée le 13 décembre 2026 ; les conserver avant cette date pour les essais ultérieurs. Aucune Release ni publication dans un dépôt de paquets n’est réalisée par cette chaîne ; la licence reste à choisir.
 
-L’[icône Dossier lié](docs/icone.md) est préparée en SVG et PNG, embarquée avec GTK et déclarée dans le lanceur et les paquets natifs. Son rendu natif et son association dans le menu des applications restent à valider.
+L’[icône Dossier lié](docs/icone.md) est préparée en SVG et PNG, embarquée avec GTK et déclarée dans le lanceur et les paquets natifs. La présence des assets et leur découverte par GTK sont contrôlées en CI ; la lisibilité des icônes et leur association dans le menu du bureau restent à valider manuellement.
 
 Les commandes retournent `0` en cas de succès ou d’annulation volontaire, `2` pour une erreur et `3` si GTK est indisponible. `--version` affiche la version de développement.

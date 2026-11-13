@@ -1,6 +1,29 @@
 # Validation et reprise
 
-## Adaptation Arch, Debian et Fedora — 13 novembre 2026
+## Validation GitHub Actions du 13 novembre 2026
+
+L’[exécution n° 5 — Vérifications Dotfilepilot](https://github.com/Masternaka/Dotfilepilot/actions/runs/43431439343), tentative 1, a terminé avec succès ses **11 jobs** sur `main`, pour la révision **`50074886f9a6c9e6afbb2ff2a4ea007ef38a32d6`**. Les états des jobs, leurs étapes, les journaux des sept suites de tests et la liste des artefacts ont été consultés en lecture seule pour cette mise à jour documentaire.
+
+| Vérification | Résultat observé | Périmètre de la preuve |
+| --- | --- | --- |
+| Python 3.9, 3.12 et 3.14 | Par version : 120 tests découverts, 96 réussis, 24 ignorés (23 GTK et 1 Stow réel). `make check` réussi. | Tests ordinaires sur runner Ubuntu ; dépendances et installations simulées dans les tests unitaires. |
+| Arch, image `archlinux:base-devel` | 120 tests réussis, aucun ignoré. | GTK4 sous Xvfb, Stow réel sur fixtures, détection et lecture de la base pacman. |
+| Debian 13, image `debian:13` | 120 tests réussis, aucun ignoré. | GTK4 sous Xvfb, Stow réel sur fixtures, détection et lecture de la base dpkg. |
+| Fedora 44, image `fedora:44` | 120 tests réussis, aucun ignoré. | GTK4 sous Xvfb, Stow réel sur fixtures, détection et lecture de la base RPM. |
+| Ubuntu 24.04, image `ubuntu:24.04` | 120 tests réussis, aucun ignoré. | Même suite native ; identité reconnue dans la famille Debian. |
+| Archives Python | Construction du wheel et des sources, contrôle de contenu et essai après installation hors du dépôt réussis. | Versions, point d’entrée, assets, inventaire et aperçu sans clonage. |
+| Paquets Arch, Debian 13 et Fedora 44 | Construction sans privilèges, installation dans le conteneur, validation du lanceur et contrôle du paquet installé réussis. | `.pkg.tar.zst`, `.deb` et `.rpm` produits et conservés comme artefacts de développement. |
+
+Les **11 artefacts** sont présents et non expirés au contrôle du 13 novembre. Les archives Python, trois paquets, recettes, empreintes et bilans sont à conserver depuis l’exécution ; expiration annoncée par GitHub le **13 décembre 2026**. Le [guide de distribution](distribution.md#télécharger-et-conserver-les-artefacts-vérifiés) explique leur récupération depuis le Mac et leur installation future.
+
+Ces résultats valident les environnements automatisés à cette révision. Les tests GTK de préparation différée emploient encore un ordonnanceur simulé pour certains scénarios : ils ne mesurent pas les threads réels, les performances ou l’ergonomie. Les contrôles d’assets ne prouvent pas le rendu sur un bureau réel. L’installation des composants par les scripts CI, avec leurs privilèges et confirmations automatiques, ne valide pas le parcours interactif `dependances --appliquer` de l’application. Le clonage HTTPS réel reste également à essayer séparément. Aucune validation générale des dérivées, d’autres versions ou de Fedora Atomic n’en découle.
+
+La présente mise à jour consulte ces preuves et corrige uniquement la documentation. `make check` réussit localement (syntaxe de 27 fichiers Python, 24 liens locaux et espaces Git) ; les ancres Markdown et la syntaxe des blocs shell modifiés sont également contrôlées. Aucun nouveau workflow, test applicatif, clonage, installation ou déploiement n’est exécuté sur le Mac ; aucun commit ni push n’est créé par cette mise à jour. Le commit et l’exécution existants ont bien été publiés auparavant, comme le confirme GitHub.
+
+**Prochaine action** : conserver les artefacts depuis le Mac, puis effectuer la [recette courte avec le paquet installé](#recette-courte-avec-le-paquet-installé) lors du retour sous Linux. Les sections datées plus anciennes ci-dessous conservent l’historique des contrôles locaux ; les mentions de validations encore manquantes y décrivent l’état de ces sessions antérieures.
+
+
+## Développement local avant la CI — 13 novembre 2026
 
 L’extension des trois familles est implémentée : détection `os-release` avec priorité à `ID`, adaptateurs pacman/APT-dpkg/DNF-RPM, diagnostic partagé et contrôles terminal/GTK. L’aperçu des dépendances inclut l’identité du système et est recalculé avant installation. Les systèmes inconnus, l’exécution globale en root et les variantes Fedora Atomic / OSTree restent refusés. Le moteur de liens, les sauvegardes, l’annulation et le format des journaux ne sont pas modifiés.
 
@@ -16,7 +39,7 @@ Contrôles locaux sur le Mac :
 
 GTK/PyGObject, Stow et le module Python `build` sont absents localement. Aucun composant installé pour les contrôles. Aucune configuration personnelle, installation de dépendances, transaction sudo, construction native ou activation réelle exécutée. Aucun commit, push, lancement de workflow ni publication de paquet.
 
-**Première reprise** : après autorisation explicite de publication, pousser ces modifications et examiner les journaux de la matrice native et des trois constructions. Les contrôles de CI devront notamment confirmer les sondes dpkg/RPM sur les bases réelles, la disponibilité des outils et les chemins Python des paquets installés. Poursuivre sur des machines virtuelles jetables avec la recette ci-dessous, adaptée à chaque distribution ; tester séparément l’installation interactive des dépendances et les parcours GTK. Ne pas annoncer toutes les dérivées, toutes les versions ou les environnements Atomic comme validés.
+L’étape alors prévue de publication et de contrôle de la CI est désormais franchie par l’exécution n° 5 décrite en tête de document. Restent les essais sur bureau réel ou machine virtuelle, l’installation interactive des dépendances et le clonage réseau. Les résultats locaux ci-dessus restent distincts des contrôles effectués ensuite sur GitHub.
 
 Les sections datées ci-dessous décrivent les sessions antérieures ; leurs restrictions Arch et leurs anciens totaux ne représentent pas le nouveau périmètre.
 
@@ -138,11 +161,45 @@ La commande produite plaçait `--` entre `--stow` et les noms des configurations
 
 Une reproduction locale avec le module Perl `Getopt::Long`, déjà disponible, confirme que `--stow -- zsh` laisse la liste des paquets vide alors que `--stow zsh` transmet `zsh`. Référence : [analyseur de GNU Stow](https://github.com/aspiers/stow/blob/master/bin/stow.in). Ce contrôle n’est pas une exécution de Stow : la reconstruction complète du paquet Arch reste à vérifier lors d’une prochaine exécution GitHub.
 
+## Recette courte avec le paquet installé
+
+**À effectuer plus tard sous Linux, pas sur le Mac.** Utiliser une machine virtuelle jetable ou un compte de test vierge, avec un bureau graphique. Choisir le paquet Arch, Debian 13 ou Fedora 44 correspondant à la cible. La CI n’a produit aucun paquet Ubuntu distinct. Prévoir séparément l’autorisation d’installation sur cet environnement ; aucune commande ci-dessous n’a été exécutée pour cette mise à jour.
+
+| Étape | Action et résultat attendu | État manuel |
+| --- | --- | --- |
+| 1. Installer et identifier | Vérifier `SHA256SUMS`, installer le paquet via le [guide de distribution](distribution.md#installation-future-sur-un-système-de-test), puis relever `dotfilepilot --version` et `dotfilepilot diagnostic`. L’identité doit correspondre à la machine. | Non effectué |
+| 2. Préparer les fixtures | Suivre l’étape 2 de la recette détaillée ci-dessous : dépôt, cible et dossier d’état temporaires, avec un fichier en conflit contenant `original fictif`. | Non effectué |
+| 3. Examiner l’aperçu | Préparer l’activation sans `--appliquer`. Vérifier la source, la cible temporaire et la sauvegarde annoncée ; le fichier original doit rester intact. | Non effectué |
+| 4. Activer puis annuler | Suivre l’étape 3 : donner l’accord explicite, vérifier le lien et la sauvegarde, puis annuler. Le fichier original et ses permissions `0640` doivent revenir ; la sauvegarde reste conservée. | Non effectué |
+| 5. Vérifier GTK | Ouvrir `dp_recette gui` avec ce même état isolé. Choisir la cible temporaire, examiner les filtres, activer puis annuler le paquet fictif et actualiser l’état. Vérifier aussi icône, chemins longs, clavier et invalidation de l’accord. | Non effectué |
+| 6. Consigner le résultat | Noter distribution, version, bureau, type de session, paquet, révision source et résultats ; conserver les journaux fictifs des échecs. | Non effectué |
+
+Pour tester le lanceur du menu, l’ouvrir avant le déploiement fictif, observer son icône et sa fenêtre, puis le fermer sans intervention. Lancer ensuite `dp_recette gui` depuis le terminal de la recette pour que les opérations utilisent le dossier d’état temporaire. Fermer toute autre instance avant ce lancement.
+
+Fiche à compléter pour chaque cible, sans données personnelles :
+
+```text
+Date :
+Distribution / VERSION_ID :
+Bureau / version / session X11 ou Wayland :
+Nom du paquet / version Dotfilepilot :
+Révision source (COMMIT.txt) :
+Dossier temporaire de la recette :
+Installation / diagnostic : réussi, échoué ou non effectué
+Aperçu / sauvegarde / activation / annulation :
+GTK / icône / clavier / filtres / accord invalidé :
+Erreurs observées / emplacement des journaux fictifs :
+```
+
+Le clonage réseau et l’installation interactive des dépendances sont des essais supplémentaires à préparer dans une machine virtuelle jetable ; ils ne sont pas nécessaires pour cette première recette.
+
 ## Recette à effectuer sur chaque distribution Linux ciblée
 
-**Procédure future, non exécutée sur le Mac.** Utiliser un compte de test sur Arch, Debian 13, Fedora 44 classique ou une dérivée explicitement ciblée, dans une machine virtuelle jetable, avec Python, Git, Stow, GTK4, PyGObject et un affichage déjà disponibles. Si un composant manque, arrêter et préparer séparément son installation après autorisation. Travailler depuis la racine du projet, sans `sudo` pour l’application. Aucun dossier personnel réel ne doit servir de cible.
+**Procédure future, non exécutée sur le Mac.** Utiliser un compte de test sur Arch, Debian 13, Fedora 44 classique ou une dérivée explicitement ciblée, dans une machine virtuelle jetable, avec Python, Git, Stow, GTK4, PyGObject et un affichage déjà disponibles. Si un composant manque, arrêter et préparer séparément son installation après autorisation. Tester le paquet installé hors du dépôt source, sans `sudo` pour l’application. Aucun dossier personnel réel ne doit servir de cible. Les commandes de suite automatique de l’étape 1 se lancent, elles, depuis la racine des sources correspondantes.
 
-### 1. Vérifications automatiques
+### 1. Vérifications automatiques complémentaires
+
+La suite a déjà réussi en CI à la révision indiquée en tête du document. Cette répétition est facultative pour la recette courte du paquet ; depuis les sources de la révision à tester, dans un environnement équipé :
 
 ```sh
 make check
@@ -163,11 +220,14 @@ mkdir -p "$DOTFILEPILOT_RECETTE/cible/.config/dotfilepilot-exemple"
 printf '%s\n' 'source fictive' > "$DOTFILEPILOT_RECETTE/depot/exemple/.config/dotfilepilot-exemple/settings"
 printf '%s\n' 'original fictif' > "$DOTFILEPILOT_RECETTE/cible/.config/dotfilepilot-exemple/settings"
 chmod 640 "$DOTFILEPILOT_RECETTE/cible/.config/dotfilepilot-exemple/settings"
+cd "$DOTFILEPILOT_RECETTE"
 
 dp_recette() {
-    XDG_STATE_HOME="$DOTFILEPILOT_RECETTE/etat" python3 -B -m dotfilepilot "$@"
+    XDG_STATE_HOME="$DOTFILEPILOT_RECETTE/etat" dotfilepilot "$@"
 }
 ```
+
+Le point d’entrée `dotfilepilot` est celui du paquet installé, utilisé hors des sources. Pour un essai distinct depuis les sources, adapter explicitement la commande et le consigner comme tel ; il ne validerait pas le paquet installé.
 
 Les règles Stow personnelles implicites restent bloquantes : si l’analyse en trouve, ne pas les déplacer ou les modifier pour contourner le refus ; utiliser un compte de test vierge. Conserver le chemin temporaire et ses journaux jusqu’à la fin de la recette ; aucun nettoyage automatique n’est prévu ici.
 
@@ -217,7 +277,7 @@ Dans un dépôt Git fictif, consulter `etat-git` puis le bouton GTK correspondan
 
 ### 6. Vérifier la distribution et l’icône séparément
 
-Après autorisation de publication des sources et réussite du workflow sur cette même révision, examiner les bilans et les artefacts décrits dans le [guide de distribution](distribution.md). Une ancienne exécution ne valide pas les nouveaux changements.
+Utiliser les artefacts de l’exécution n° 5 pour tester sa révision, ou les artefacts d’une nouvelle exécution réussie pour une révision plus récente. Examiner les bilans et `COMMIT.txt` selon le [guide de distribution](distribution.md). Une ancienne exécution ne valide pas les nouveaux changements applicatifs.
 
 Après installation du paquet dans le seul environnement de test autorisé, vérifier le lanceur `io.github.dotfilepilot.App.desktop`, l’icône du menu et l’association à la fenêtre sous le bureau cible. Comparer le rendu SVG et les PNG en petites tailles ; voir la [fiche de l’icône](icone.md). La présence des fichiers dans le paquet ne prouve pas leur rendu dans GTK ou le menu.
 
@@ -225,4 +285,6 @@ Pour chaque étape, consigner **réussi**, **échoué** ou **non effectué**, av
 
 ## Reprendre le travail
 
-Les derniers correctifs d’annulation, la préparation différée de l’aperçu et l’icône restent sans nouvelle validation d’exécution. Sur le Mac, poursuivre seulement les lectures et les modifications de dépôt explicitement demandées ; aucune installation ni exécution de tests n’est autorisée actuellement. Pour valider, utiliser un environnement de test autorisé et commencer par l’étape 1 de la recette ci-dessus. Un commit/push et toute installation sur une cible restent soumis à une autorisation distincte. Vérifier ensuite une nouvelle exécution GitHub depuis la révision qui contient tous les fichiers ajoutés, y compris les assets non suivis. Les mises à jour Git restent à développer. Aucun commit, push, paquet publié ou installation n’a été effectué dans cette session.
+La validation automatisée de la révision `5007488` est achevée sur GitHub, avec les trois paquets disponibles comme artefacts de développement. Depuis le Mac, conserver ces fichiers et poursuivre les travaux de dépôt demandés sans installation ni activation de configurations. Au retour sous Linux, commencer par la recette courte avec le paquet installé et consigner les résultats dans la fiche ci-dessus. Aucun essai manuel sur bureau personnel n’est encore attesté ici.
+
+Les validations restantes concernent le bureau réel, les threads et les performances, l’installation interactive des dépendances et le clonage réseau. Toute nouvelle révision applicative nécessite ses propres contrôles. Les mises à jour Git restent une fonction future. Un nouveau commit/push, une Release ou toute intervention sur une machine restent soumis à une demande explicite couvrant l’action et la cible.

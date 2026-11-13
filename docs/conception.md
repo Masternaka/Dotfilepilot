@@ -21,7 +21,7 @@ Le moteur exige Linux et identifie d’abord `ID`, puis les mots exacts de `ID_L
 - `gui.py` / `gtk_app.py` : chargement GTK facultatif, navigation et opérations en arrière-plan.
 - `presentation.py` : regroupement, filtrage et comptage de l’aperçu d’activation, ainsi que présentation du rapport d’état, sans GTK ni accès aux fichiers.
 - `tests/` : scénarios isolés avec fichiers temporaires, commandes simulées et intégration Stow facultative.
-- `.github/workflows/ci.yml` et `packaging/` : tests natifs Arch, Debian 13, Fedora 44 et Ubuntu 24.04, archives Python et recettes Arch/Debian/Fedora ; constructions et installations à valider sur GitHub.
+- `.github/workflows/ci.yml` et `packaging/` : tests natifs Arch, Debian 13, Fedora 44 et Ubuntu 24.04, archives Python et recettes Arch/Debian/Fedora ; tests, constructions et installations de contrôle réussis dans l’exécution GitHub n° 5 ; essais manuels sur bureau réel restants.
 
 Le moteur n’exécute pas de shell. Le clonage désactive les hooks, les modèles Git, les configurations Git globales et les sous-modules. Cette première version ne gère ni authentification privée, ni secrets enregistrés, ni exécution des programmes du dépôt.
 
@@ -70,7 +70,7 @@ GTK lance la consultation en arrière-plan et écarte le résultat si les champs
 
 ## Limites de la première version
 
-Le code constitue une version de développement, pas une version prête pour les configurations personnelles. La validation native Stow, GTK, des gestionnaires de paquets, de sudo et de Git réseau reste à réaliser. Les protections visent les erreurs courantes et les changements entre aperçu et application ; elles ne garantissent pas une transaction atomique face à un autre programme qui modifie simultanément les mêmes chemins.
+Le code constitue une version de développement, pas une version prête pour les configurations personnelles. Les tests natifs Stow et GTK ont réussi dans les quatre conteneurs de CI, ainsi que les sondes des bases de paquets et les installations de contrôle des paquets Dotfilepilot. Restent les essais GTK manuels, les vrais threads, l’installation interactive des dépendances via sudo et le clonage Git réseau dans un environnement de test autorisé. Les protections visent les erreurs courantes et les changements entre aperçu et application ; elles ne garantissent pas une transaction atomique face à un autre programme qui modifie simultanément les mêmes chemins.
 
 Le mode utilisateur vise le dossier personnel. Les modèles destinés à `/etc`, comme Samba et pacman, exigent un futur parcours séparé. Aucun privilège administrateur n’est utilisé pour Stow. Les répertoires vides créés par Stow ne sont pas supprimés lors de l’annulation.
 
@@ -82,15 +82,15 @@ Les recettes `.deb` et `.rpm` sont préparées par `scripts/prepare_linux_build.
 
 La CI prépare les composants dans des conteneurs jetables, vérifie l’adaptateur sur leur base réelle de paquets et exécute GTK/Stow sous un compte sans privilèges. Après réussite de la matrice native et Python, elle prépare les archives communes puis les trois formats de paquets. Les installations de contrôle n’activent aucun dotfile.
 
-Restent à vérifier : exécution de cette chaîne, disponibilité des dépendances dans les images choisies, construction et installation des paquets, puis essais sur bureaux et machines virtuelles. Le [bilan de validation](validation.md) distingue les tests locaux simulés de ces validations. Les distributions dérivées reconnues par `ID_LIKE` ne sont pas automatiquement annoncées comme testées.
+L’[exécution n° 5 du 13 novembre 2026](https://github.com/Masternaka/Dotfilepilot/actions/runs/43431439343) a confirmé la matrice native, les dépendances des images et la construction puis l’installation des trois paquets à la révision `5007488`. Restent les essais manuels sur bureaux et machines virtuelles, y compris les transactions interactives et le clonage réseau. Le [bilan de validation](validation.md) distingue les tests locaux simulés de ces validations. Les distributions dérivées reconnues par `ID_LIKE` ne sont pas automatiquement annoncées comme testées.
 
 Références techniques : [identité os-release](https://www.freedesktop.org/software/systemd/man/latest/os-release.html), [composants PyGObject](https://pygobject.gnome.org/getting_started.html), [états dpkg-query](https://manpages.debian.org/bookworm/dpkg/dpkg-query.1.en.html), [formats de requête RPM](https://rpm.org/docs/6.0.x/man/rpm-queryformat.7), [construction Python Debian](https://wiki.debian.org/Python/Pybuild).
 
 ## Suite proposée
 
-- Valider l’intégration Stow et les parcours GTK sur Arch, Debian 13 et Fedora 44, puis sur les dérivées identifiées ciblées.
+- Effectuer la recette manuelle sur les paquets Arch, Debian 13 et Fedora 44 déjà contrôlés en CI, puis sur les dérivées identifiées ciblées.
 - Tester le clonage réseau et l’installation des dépendances dans une machine virtuelle jetable.
-- Valider les trois constructions de paquets, leurs installations et leur lanceur de bureau dans la chaîne GitHub.
+- Vérifier le lanceur et l’association de l’icône dans les bureaux cibles ; les constructions et installations des trois paquets ont réussi en CI.
 - Valider le tableau GTK d’activation : lisibilité des chemins longs, filtres, clavier et volumes importants.
 - Ouvrir une configuration dans l’éditeur choisi, après définition du parcours correspondant.
 - Préparer les mises à jour Git : vérifier les modifications locales, afficher la révision proposée et expliquer que les liens actifs changent immédiatement ; aucune mise à jour silencieuse.
