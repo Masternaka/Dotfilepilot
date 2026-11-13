@@ -1,0 +1,5 @@
+dotfilepilot (@NATIVE_VERSION@-@RELEASE@) unstable; urgency=medium
+
+  * Construction de développement depuis les sources vérifiées.
+
+ -- Dotfilepilot (construction de développement) <noreply@example.invalid>  Thu, 01 Jan 1970 00:00:00 +0000

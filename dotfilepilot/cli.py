@@ -8,7 +8,7 @@ from . import __version__, deployments as deploy
 from .monitoring import current_state
 from .git_status import repository_status
 from .system import (PilotError, clone, clone_plan, diagnostic, install,
-                     installation_plan, require_arch)
+                     installation_plan, require_supported)
 
 
 def show(data):
@@ -23,7 +23,7 @@ def confirm():
 
 
 def parser():
-    root = argparse.ArgumentParser(description="Dotfilepilot — configurations pour Arch Linux et ses dérivées")
+    root = argparse.ArgumentParser(description="Dotfilepilot — configurations pour Arch, Debian et Fedora")
     root.add_argument("--version", action="version", version=__version__)
     commands = root.add_subparsers(dest="command", required=True)
     commands.add_parser("diagnostic", help="Consulter les composants disponibles")
@@ -83,7 +83,7 @@ def main(argv=None):
                 action = lambda: deploy.undo(args.identifiant, plan)
             show(plan)
             if args.appliquer:
-                require_arch()
+                require_supported()
                 if confirm():
                     print(action())
                 else:

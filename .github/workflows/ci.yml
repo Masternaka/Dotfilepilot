@@ -43,18 +43,54 @@ jobs:
           retention-days: 30
 
   native:
-    name: GTK4 et Stow réels sur Linux
+    name: GTK4 et Stow — ${{ matrix.family }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    container: ${{ matrix.image }}
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - family: arch
+            image: archlinux:base-devel
+          - family: debian
+            image: debian:13
+          - family: fedora
+            image: fedora:44
+          - family: ubuntu
+            image: ubuntu:24.04
     steps:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      # Dépendances du runner éphémère uniquement ; aucune installation locale.
-      - name: Préparer le runner Linux
+      # Dépendances des conteneurs éphémères uniquement ; aucune installation locale.
+      - name: Préparer les composants natifs
+        env:
+          TEST_FAMILY: ${{ matrix.family }}
         run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y python3-gi gir1.2-gtk-4.0 xvfb xauth dbus-x11 stow
+          case "$TEST_FAMILY" in
+            arch)
+              pacman -Syu --noconfirm --needed python python-gobject gtk4 git stow sudo xorg-server-xvfb xorg-xauth dbus
+              ;;
+            debian|ubuntu)
+              apt-get update
+              DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y python3 python3-gi gir1.2-gtk-4.0 git stow sudo xvfb xauth dbus-x11 util-linux
+              ;;
+            fedora)
+              dnf install -y python3 python3-gobject gtk4 git stow sudo xorg-x11-server-Xvfb xorg-x11-xauth dbus-daemon util-linux shadow-utils tar gzip findutils
+              ;;
+          esac
+          useradd --create-home tester
+          mkdir -p artifacts/verification
+          chown tester artifacts/verification
+      - name: Vérifier la détection et les paquets réellement installés
+        env:
+          TEST_FAMILY: ${{ matrix.family }}
+        run: |
+          runuser -u tester -- /usr/bin/python3 -B -c 'import os; from dotfilepilot.system import installation_plan; p = installation_plan(); expected = os.environ["TEST_FAMILY"]; assert p["distribution"]["famille"] == ("debian" if expected == "ubuntu" else expected), p; assert not p["manquants"], p'
       - name: Exécuter les tests GTK4 et Stow avec les tests ordinaires
         env:
           DOTFILEPILOT_TEST_GTK: '1'
@@ -63,13 +99,12 @@ jobs:
           GSK_RENDERER: cairo
           GTK_A11Y: none
         run: |
-          mkdir -p artifacts/verification
-          xvfb-run -a dbus-run-session -- /usr/bin/python3 -B scripts/run_tests.py --require-native --report artifacts/verification/native.json
+          runuser -u tester -- xvfb-run -a dbus-run-session -- /usr/bin/python3 -B scripts/run_tests.py --require-native --report artifacts/verification/native.json
       - name: Conserver le bilan des tests natifs
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: dotfilepilot-tests-native-${{ github.sha }}-${{ github.run_attempt }}
+          name: dotfilepilot-tests-native-${{ matrix.family }}-${{ github.sha }}-${{ github.run_attempt }}
           path: artifacts/verification/native.json
           if-no-files-found: warn
           retention-days: 30
@@ -167,5 +202,122 @@ jobs:
         with:
           name: dotfilepilot-arch-${{ github.sha }}-${{ github.run_attempt }}
           path: artifacts/arch/
+          if-no-files-found: error
+          retention-days: 30
+
+  debian:
+    name: Paquet Debian 13
+    needs: package
+    runs-on: ubuntu-24.04
+    container: debian:13
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Préparer le conteneur jetable
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y build-essential fakeroot debhelper dh-sequence-python3 pybuild-plugin-pyproject python3-all python3-setuptools python3-wheel python3-gi gir1.2-gtk-4.0 git stow sudo desktop-file-utils
+      - uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.package.outputs.python_artifact_id }}
+          merge-multiple: true
+          path: dist/
+      - name: Vérifier les sources et préparer les recettes
+        env:
+          BUILD_REVISION: ${{ github.run_number }}
+        run: |
+          cd dist
+          sha256sum --check SHA256SUMS
+          test "$(cat COMMIT.txt)" = "$GITHUB_SHA"
+          cd ..
+          python3 -B scripts/prepare_linux_build.py --family debian --source dist/*.tar.gz --output "$RUNNER_TEMP/dotfilepilot-debian" --release "$BUILD_REVISION"
+          mkdir "$RUNNER_TEMP/dotfilepilot-debian/source"
+          tar -xzf "$RUNNER_TEMP/dotfilepilot-debian/"*.tar.gz --strip-components=1 -C "$RUNNER_TEMP/dotfilepilot-debian/source"
+          cp -r "$RUNNER_TEMP/dotfilepilot-debian/debian" "$RUNNER_TEMP/dotfilepilot-debian/source/"
+          useradd --create-home builder
+          chown -R builder:builder "$RUNNER_TEMP/dotfilepilot-debian"
+      - name: Construire sans droits administrateur
+        run: |
+          runuser -u builder -- bash -c 'cd "$1/source" && dpkg-buildpackage -b -us -uc' _ "$RUNNER_TEMP/dotfilepilot-debian"
+      - name: Vérifier le paquet installé dans le conteneur
+        run: |
+          apt-get install -y "$RUNNER_TEMP/dotfilepilot-debian/"*.deb
+          cd "$RUNNER_TEMP"
+          desktop-file-validate /usr/share/applications/io.github.dotfilepilot.App.desktop
+          /usr/bin/python3 -I -B "$GITHUB_WORKSPACE/scripts/smoke_installed.py"
+      - name: Préparer les fichiers téléchargeables
+        run: |
+          mkdir -p artifacts/debian
+          cp "$RUNNER_TEMP/dotfilepilot-debian/"*.deb artifacts/debian/
+          cp -r "$RUNNER_TEMP/dotfilepilot-debian/debian" artifacts/debian/recette
+          cp dist/COMMIT.txt artifacts/debian/
+          cd artifacts/debian
+          sha256sum *.deb recette/* COMMIT.txt > SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dotfilepilot-debian13-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/debian/
+          if-no-files-found: error
+          retention-days: 30
+
+  fedora:
+    name: Paquet Fedora 44
+    needs: package
+    runs-on: ubuntu-24.04
+    container: fedora:44
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Préparer le conteneur jetable
+        run: dnf install -y rpm-build python3-devel pyproject-rpm-macros python3-setuptools python3-wheel python3-gobject gtk4 git stow sudo desktop-file-utils util-linux shadow-utils tar gzip findutils
+      - uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.package.outputs.python_artifact_id }}
+          merge-multiple: true
+          path: dist/
+      - name: Vérifier les sources et préparer les recettes
+        env:
+          BUILD_REVISION: ${{ github.run_number }}
+        run: |
+          cd dist
+          sha256sum --check SHA256SUMS
+          test "$(cat COMMIT.txt)" = "$GITHUB_SHA"
+          cd ..
+          python3 -B scripts/prepare_linux_build.py --family fedora --source dist/*.tar.gz --output "$RUNNER_TEMP/dotfilepilot-fedora" --release "$BUILD_REVISION"
+          mkdir "$RUNNER_TEMP/dotfilepilot-fedora/SOURCES"
+          cp "$RUNNER_TEMP/dotfilepilot-fedora/"*.tar.gz "$RUNNER_TEMP/dotfilepilot-fedora/SOURCES/"
+          useradd --create-home builder
+          chown -R builder:builder "$RUNNER_TEMP/dotfilepilot-fedora"
+      - name: Construire sans droits administrateur
+        run: |
+          runuser -u builder -- rpmbuild --define "_topdir $RUNNER_TEMP/dotfilepilot-fedora" -bb "$RUNNER_TEMP/dotfilepilot-fedora/SPECS/dotfilepilot.spec"
+      - name: Vérifier le paquet installé dans le conteneur
+        run: |
+          dnf install -y "$RUNNER_TEMP/dotfilepilot-fedora/RPMS/noarch/"*.rpm
+          cd "$RUNNER_TEMP"
+          desktop-file-validate /usr/share/applications/io.github.dotfilepilot.App.desktop
+          /usr/bin/python3 -I -B "$GITHUB_WORKSPACE/scripts/smoke_installed.py"
+      - name: Préparer les fichiers téléchargeables
+        run: |
+          mkdir -p artifacts/fedora
+          cp "$RUNNER_TEMP/dotfilepilot-fedora/RPMS/noarch/"*.rpm artifacts/fedora/
+          cp "$RUNNER_TEMP/dotfilepilot-fedora/SPECS/dotfilepilot.spec" artifacts/fedora/
+          cp dist/COMMIT.txt artifacts/fedora/
+          cd artifacts/fedora
+          sha256sum *.rpm dotfilepilot.spec COMMIT.txt > SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dotfilepilot-fedora44-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/fedora/
           if-no-files-found: error
           retention-days: 30

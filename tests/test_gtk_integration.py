@@ -335,7 +335,7 @@ class GtkTests(unittest.TestCase):
         from test_presentation import activation_fixture
         plan = activation_fixture()
         with patch('dotfilepilot.gtk_app.deploy.apply', return_value='Terminé') as apply, \
-                patch('dotfilepilot.gtk_app.require_arch'), \
+                patch('dotfilepilot.gtk_app.require_supported'), \
                 patch('dotfilepilot.gtk_app.Thread') as thread:
             self.complete_preview(lambda: self.window.review(plan, lambda: deployments.apply(plan)))
             self.complete_preview(lambda: self.window.preview_filter.set_selected(3))
@@ -411,7 +411,7 @@ class GtkTests(unittest.TestCase):
         """Control worker completion without sleeps or real filesystem operations."""
         with patch('dotfilepilot.gtk_app.Thread') as thread, \
                 patch('dotfilepilot.gtk_app.GLib.idle_add') as idle, \
-                patch('dotfilepilot.gtk_app.require_arch'):
+                patch('dotfilepilot.gtk_app.require_supported'):
             if intervention:
                 self.window.review({'url': 'https://example.org/repo', 'destination': '/tmp/example'}, action)
                 self.window.agree.set_active(True)

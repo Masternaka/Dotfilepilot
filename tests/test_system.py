@@ -63,20 +63,20 @@ class SystemTests(unittest.TestCase):
             self.assertFalse(destination.exists())
 
     def test_package_probe_failure_does_not_become_missing(self):
-        with patch.object(system, "require_arch"), patch.object(system.shutil, "which", return_value="/pacman"), \
+        with patch.object(system, "require_supported", return_value={"famille": "arch"}), patch.object(system.shutil, "which", return_value="/pacman"), \
                 patch.object(system, "run", side_effect=PilotError("database error")):
             with self.assertRaises(PilotError):
                 system.installation_plan()
 
     def test_only_missing_packages_proposed(self):
-        with patch.object(system, "require_arch"), patch.object(system.shutil, "which", return_value="/pacman"), \
+        with patch.object(system, "require_supported", return_value={"famille": "arch"}), patch.object(system.shutil, "which", return_value="/pacman"), \
                 patch.object(system, "run", return_value="git\npython\n"):
             plan = system.installation_plan()
             self.assertEqual(plan["manquants"], ["stow", "python-gobject", "gtk4"])
             self.assertNotIn("--noconfirm", plan["commande"])
 
     def test_install_rechecks_preview(self):
-        with patch.object(system, "require_arch"), patch.object(system, "installation_plan", return_value={}), \
+        with patch.object(system, "require_supported", return_value={"famille": "arch"}), patch.object(system, "installation_plan", return_value={}), \
                 patch.object(system, "run") as execute:
             with self.assertRaises(PilotError):
                 system.install({"commande": ["changed"]})
@@ -92,6 +92,6 @@ class SystemTests(unittest.TestCase):
             self.assertEqual(cli.main(["cloner", "https://github.com/example/dotfiles.git", temp + "/repo"]), 0)
             execute.assert_not_called()
 
-    def test_non_arch_mutation_blocks(self):
-        with patch.object(system, "is_arch", return_value=False), self.assertRaises(PilotError):
-            system.require_arch()
+    def test_unsupported_mutation_blocks(self):
+        with patch.object(system, "distribution", return_value={"interventions": False, "motif": "Inconnu"}), self.assertRaises(PilotError):
+            system.require_supported()

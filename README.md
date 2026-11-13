@@ -2,15 +2,15 @@
 
 <img src="dotfilepilot/assets/icons/io.github.dotfilepilot.App.png" width="96" height="96" alt="Icône Dotfilepilot : dossier bleu avec deux maillons blancs">
 
-Dotfilepilot facilite l’installation et la gestion des fichiers de configuration sur **Arch Linux et ses distributions dérivées**. Le projet reprend l’approche de Sambapilot : un moteur Python partagé par le terminal et une interface graphique GTK4.
+Dotfilepilot facilite l’installation et la gestion des fichiers de configuration sur **Arch Linux, Debian et Fedora classique**, ainsi que les dérivées identifiées par `os-release`. Le projet reprend l’approche de Sambapilot : un moteur Python partagé par le terminal et une interface graphique GTK4.
 
-Cette première version de développement propose le clonage d’un dépôt Git HTTPS, la sélection des configurations, les liens GNU Stow, les sauvegardes des conflits et l’annulation d’un déploiement. **Les tests locaux utilisent un Stow simulé ; l’utilisation réelle sur Arch Linux et ses dérivées reste à valider.**
+Cette première version de développement propose le clonage d’un dépôt Git HTTPS, la sélection des configurations, les liens GNU Stow, les sauvegardes des conflits et l’annulation d’un déploiement. **Les adaptateurs des trois familles sont implémentés et testés avec des commandes simulées. La validation native des distributions et des paquets reste à effectuer en CI et sur des machines de test.**
 
 ## Fonctions présentes dans le code
 
 | Fonction | Comportement | Limite actuelle |
 | --- | --- | --- |
-| Dépendances | Détecter et proposer `git`, `stow`, `python`, `python-gobject` et `gtk4`, installer après confirmation. | Installation dans le terminal avec `sudo` et confirmation de la transaction pacman. |
+| Dépendances | Détecter et proposer les composants adaptés à Arch, Debian ou Fedora, installer après confirmation. | Installation dans le terminal avec `sudo` et confirmation de la transaction pacman, APT ou DNF. |
 | Dépôt | Cloner en HTTPS ou utiliser un dossier existant. | Aucun sous-module, script d’installation ou hook du dépôt lancé ; premier parcours prévu pour les dépôts publics. |
 | Inventaire | Afficher les dossiers candidats et cocher les configurations à activer. | Le dépôt doit être organisé par paquets Stow contenant des fichiers cachés. |
 | Aperçu | Laisser Stow calculer les liens dans un dossier temporaire, puis examiner les sources et destinations ; GTK présente un tableau par configuration avec filtres et totaux. | Stow doit déjà être installé ; règles Stow personnalisées refusées. |
@@ -31,14 +31,14 @@ python3 -B -m dotfilepilot --help
 python3 -B -m dotfilepilot diagnostic
 ```
 
-Sur **Arch Linux ou une distribution dérivée**, examiner les dépendances puis demander leur installation :
+Sur **Arch, Debian ou Fedora classique**, ou une dérivée identifiée, examiner les dépendances puis demander leur installation :
 
 ```sh
 python3 -B -m dotfilepilot dependances
 python3 -B -m dotfilepilot dependances --appliquer
 ```
 
-La seconde commande affiche l’aperçu, demande de taper `OUI`, puis lance pacman via `sudo`. Pacman conserve sa propre confirmation sur les dépendances et les éventuels remplacements. Aucune commande d’installation n’est lancée au démarrage. Si Python manque, il doit être installé par le mécanisme de distribution du système ; l’application Python ne peut pas s’amorcer seule.
+La seconde commande affiche l’aperçu, demande de taper `OUI`, puis lance le gestionnaire adapté via `sudo`. Le gestionnaire conserve sa propre confirmation sur les dépendances et les éventuels remplacements. Aucun `-y` ou `--noconfirm` n’est ajouté par l’application ; les paramètres propres au gestionnaire restent sous la responsabilité de l’utilisateur. Aucune commande d’installation n’est lancée au démarrage. Si Python manque, il doit être installé par le mécanisme de distribution du système ; l’application Python ne peut pas s’amorcer seule.
 
 Ouvrir l’interface lorsque GTK4 et PyGObject sont disponibles :
 
@@ -67,9 +67,19 @@ python3 -B -m dotfilepilot annuler IDENTIFIANT
 python3 -B -m dotfilepilot annuler IDENTIFIANT --appliquer
 ```
 
-Sans `--appliquer`, les commandes d’intervention produisent seulement un aperçu. Les aperçus d’activation utilisent un dossier temporaire privé pour les liens Stow, sans déplacer les configurations existantes. Les interventions sont bloquées hors de la famille Arch, même avec `--appliquer`.
+Sans `--appliquer`, les commandes d’intervention produisent seulement un aperçu. Les aperçus d’activation utilisent un dossier temporaire privé pour les liens Stow, sans déplacer les configurations existantes. Les interventions sont bloquées sur les systèmes non reconnus et les éditions Fedora Atomic / OSTree, même avec `--appliquer`. L’application entière ne doit pas être lancée avec `sudo`.
 
-La détection exige Linux et un fichier `os-release` indiquant `ID=arch` ou contenant le mot exact `arch` dans `ID_LIKE`. Elle lit `/etc/os-release`, puis `/usr/lib/os-release` si le premier est absent. Aucune liste de distributions n’est imposée. Une identité absente, illisible ou non reconnue reste bloquante ; la présence de pacman seule ne suffit pas. L’installation des dépendances utilise pacman et les dépôts configurés de la distribution. Cette détection ne garantit pas que chaque distribution dérivée et ses versions de paquets ont été testées.
+La détection exige Linux. Elle lit `/etc/os-release`, puis `/usr/lib/os-release` uniquement si le premier est absent. `ID` est prioritaire ; les mots exacts de `ID_LIKE`, dans leur ordre, servent de repli pour reconnaître `arch`, `debian` ou `fedora`. Une identité illisible ou non reconnue reste bloquante ; la présence d’un gestionnaire ne suffit pas. Les versions et variantes sont affichées dans le diagnostic et incluses dans l’aperçu des dépendances pour sa revalidation.
+
+| Famille | Gestionnaire et sonde | Composants proposés |
+| --- | --- | --- |
+| Arch | pacman | `git`, `stow`, `python`, `python-gobject`, `gtk4` |
+| Debian | APT et dpkg-query | `git`, `stow`, `python3`, `python3-gi`, `gir1.2-gtk-4.0` |
+| Fedora classique | DNF et RPM | `git`, `stow`, `python3`, `python3-gobject`, `gtk4` |
+
+Les sondes lisent les bases de paquets locales. Une sonde en échec n’est jamais interprétée comme une liste de paquets manquants. L’application ne rafraîchit pas automatiquement les dépôts et ne lance pas de mise à jour générale du système. GTK et PyGObject restent facultatifs pour utiliser le terminal, même si la préparation des dépendances et les paquets natifs proposent l’interface complète.
+
+Ubuntu et Linux Mint peuvent être identifiés comme dérivés de Debian ; cela ne valide pas toutes leurs versions. Fedora Workstation et les installations classiques avec DNF constituent la cible Fedora ; Silverblue, Kinoite, CoreOS et les autres variantes Atomic / OSTree restent exclues. La matrice de CI prévue couvre Arch, Debian 13, Fedora 44 et Ubuntu 24.04. Sa réussite et les essais sur bureau réel restent à confirmer.
 
 Les liens actifs pointent vers le dépôt : modifier leur contenu dans un éditeur modifie donc les fichiers du dépôt. Ne pas déplacer ni supprimer le clone tant que ses configurations sont actives.
 
@@ -120,14 +130,14 @@ make check
 DOTFILEPILOT_TEST_STOW=1 make test
 ```
 
-Voir le [bilan de validation et la recette Arch et dérivées](docs/validation.md), ainsi que le [cahier des charges et la suite du projet](docs/conception.md).
+Voir le [bilan de validation et la recette Linux](docs/validation.md), ainsi que le [cahier des charges et la suite du projet](docs/conception.md).
 
 ## Paquets GitHub
 
-Comme Sambapilot, le workflow GitHub Actions prépare les tests Python, GTK4 et Stow, puis construit les archives Python et un paquet Arch `.pkg.tar.zst`. Les paquets vérifiés seront téléchargeables dans les artefacts de chaque exécution réussie, conservés 30 jours. Le paquet Arch déclare les dépendances et fournit le lanceur graphique.
+Le workflow GitHub Actions prépare les tests Python, GTK4 et Stow dans les environnements Linux prévus, puis construit les archives Python et les paquets Arch `.pkg.tar.zst`, Debian `.deb` et Fedora `.rpm`. Chaque construction de paquet réutilise l’archive source vérifiée et s’exécute sans privilèges ; l’installation de contrôle se fait dans le conteneur jetable. Les artefacts des exécutions réussies sont conservés 30 jours.
 
-Le [guide de distribution](docs/distribution.md) décrit le téléchargement et l’installation sur Arch Linux et ses dérivées. La chaîne est configurée localement ; aucune exécution GitHub ni construction Arch n’a encore été vérifiée.
+Le [guide de distribution](docs/distribution.md) décrit les recettes, les dépendances, les lanceurs et les limites. La chaîne est configurée localement ; aucune nouvelle exécution GitHub ni construction de paquet natif n’a été vérifiée dans cette adaptation. Les recettes sont des préparations de développement, sans choix de licence ni publication publique.
 
-L’[icône Dossier lié](docs/icone.md) est préparée en SVG et PNG, embarquée avec GTK et déclarée dans le lanceur et le paquet Arch. Son rendu natif et son association dans le menu des applications restent à valider.
+L’[icône Dossier lié](docs/icone.md) est préparée en SVG et PNG, embarquée avec GTK et déclarée dans le lanceur et les paquets natifs. Son rendu natif et son association dans le menu des applications restent à valider.
 
 Les commandes retournent `0` en cas de succès ou d’annulation volontaire, `2` pour une erreur et `3` si GTK est indisponible. `--version` affiche la version de développement.

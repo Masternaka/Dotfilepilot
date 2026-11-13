@@ -9,6 +9,8 @@ import subprocess
 import tempfile
 from urllib.parse import urlsplit
 
+from .distributions import ADAPTERS
+
 
 class PilotError(Exception):
     pass
@@ -28,9 +30,12 @@ def run(command, cwd=None, capture=True):
     return result.stdout or ""
 
 
-def is_arch():
+def distribution():
+    """Lire l'identité déclarative ; un gestionnaire présent ne suffit jamais."""
+    unknown = {"id": "", "version": "", "variante": "", "famille": None,
+               "interventions": False, "motif": "Identité Linux absente, illisible ou non reconnue."}
     if platform.system() != "Linux":
-        return False
+        return dict(unknown, motif="Les interventions nécessitent Linux.")
     content = None
     for release in ("/etc/os-release", "/usr/lib/os-release"):
         try:
@@ -39,65 +44,92 @@ def is_arch():
         except FileNotFoundError:
             continue
         except (OSError, UnicodeError):
-            return False
+            return unknown
     if content is None:
-        return False
+        return unknown
     try:
         values = {}
         for line in content.splitlines():
             if "=" not in line or line.lstrip().startswith("#"):
                 continue
             key, value = line.split("=", 1)
-            if key.strip() not in ("ID", "ID_LIKE"):
+            if key.strip() not in ("ID", "ID_LIKE", "VERSION_ID", "VARIANT_ID"):
                 continue
             parsed = shlex.split(value, comments=True)
             if len(parsed) != 1:
-                return False
+                return unknown
             values[key.strip()] = parsed[0]
     except ValueError:
-        return False
-    return values.get("ID") == "arch" or "arch" in values.get("ID_LIKE", "").split()
+        return unknown
+    identity = values.get("ID", "")
+    # ID est prioritaire ; ID_LIKE est une liste ordonnée de mots exacts.
+    candidates = [identity] + values.get("ID_LIKE", "").split()
+    family = next((item for item in candidates if item in ADAPTERS), None)
+    variant = values.get("VARIANT_ID", "")
+    result = dict(unknown, id=identity, version=values.get("VERSION_ID", ""),
+                  variante=variant, famille=family)
+    if family:
+        result.update(interventions=True, motif="")
+    if family == "fedora" and (variant == "atomic" or variant.endswith("-atomic") or variant in (
+            "silverblue", "kinoite", "sericea", "onyx", "coreos", "sway-atomic",
+            "budgie-atomic", "cosmic-atomic") or Path("/run/ostree-booted").exists()):
+        result.update(interventions=False,
+                      motif="Les éditions Fedora Atomic / OSTree ne sont pas prises en charge.")
+    return result
 
 
-def require_arch():
-    if not is_arch():
-        raise PilotError("Les interventions sont réservées à Arch Linux et à ses distributions dérivées.")
+def is_arch():
+    return distribution()["famille"] == "arch"
+
+
+def require_supported():
+    identity = distribution()
+    if not identity["interventions"]:
+        raise PilotError(identity["motif"] + " Cibles : Arch, Debian et Fedora classique.")
     if os.geteuid() == 0:
         raise PilotError("Lancer Dotfilepilot avec votre compte utilisateur, sans sudo.")
+    return identity
 
 
 def diagnostic():
-    return {"systeme": platform.system(), "arch": is_arch(),
-            "outils": {name: shutil.which(name) for name in ("git", "stow", "pacman", "pkexec")},
-            "paquets_requis": ["git", "stow", "python", "python-gobject", "gtk4"]}
-
-
-PACKAGES = ("git", "stow", "python", "python-gobject", "gtk4")
+    identity = distribution()
+    adapter = ADAPTERS.get(identity["famille"])
+    return {"systeme": platform.system(), "arch": identity["famille"] == "arch",
+            "distribution": identity,
+            "gestionnaire": adapter.manager if adapter else None,
+            "outils": {name: shutil.which(name) for name in
+                       ("git", "stow", "pacman", "apt-get", "dpkg-query", "dnf", "rpm", "sudo")},
+            "paquets_requis": list(adapter.packages) if adapter else []}
 
 
 def installation_plan():
-    require_arch()
-    if not shutil.which("pacman"):
-        raise PilotError("pacman est introuvable.")
+    identity = require_supported()
+    adapter = ADAPTERS[identity["famille"]]
+    for tool in (adapter.manager, adapter.query[0]):
+        if not shutil.which(tool):
+            raise PilotError(tool + " est introuvable ; état des dépendances inconnu.")
     # A failed query is not sufficient evidence of a missing package.
-    installed = set(run(["pacman", "-Qq"]).splitlines())
-    missing = [name for name in PACKAGES if name not in installed]
-    return {"manquants": missing,
-            "commande": ["pacman", "-S", "--needed"] + missing if missing else []}
+    try:
+        installed = adapter.installed(run(list(adapter.query)))
+    except ValueError as error:
+        raise PilotError(str(error)) from error
+    missing = [name for name in adapter.packages if name not in installed]
+    return {"distribution": identity, "gestionnaire": adapter.manager, "manquants": missing,
+            "commande": list(adapter.install) + missing if missing else []}
 
 
 def install(plan, graphical=False):
-    require_arch()
+    require_supported()
     if graphical:
-        raise PilotError("L’installation se fait dans le terminal pour examiner la transaction pacman.")
+        raise PilotError("L’installation se fait dans le terminal pour examiner la transaction système.")
     if installation_plan() != plan:
-        raise PilotError("Les dépendances ont changé : recalculer l’aperçu.")
+        raise PilotError("Les dépendances ou le système ont changé : recalculer l’aperçu.")
     if not plan["commande"]:
         return "Tous les composants sont déjà installés."
     elevation = "sudo"
     if not shutil.which(elevation):
         raise PilotError(elevation + " est introuvable ; utiliser le terminal.")
-    # Keep pacman's own dependency, replacement and transaction confirmation.
+    # Keep the package manager's own dependency, replacement and transaction confirmation.
     command = [elevation] + plan["commande"]
     run(command, capture=False)
     if installation_plan()["manquants"]:
@@ -118,7 +150,7 @@ def clone_plan(url, destination):
 
 
 def clone(plan):
-    require_arch()
+    require_supported()
     if clone_plan(plan["url"], plan["destination"]) != plan:
         raise PilotError("Destination modifiée.")
     destination = Path(plan["destination"])

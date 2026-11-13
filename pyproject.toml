@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dotfilepilot"
 version = "0.1.0.dev0"
-description = "Gestionnaire de dotfiles pour Arch Linux et ses distributions dérivées"
+description = "Gestionnaire de dotfiles pour Arch Linux, Debian et Fedora"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = []

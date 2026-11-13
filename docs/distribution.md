@@ -2,57 +2,74 @@
 
 ## Fonctionnement
 
-Le workflow [ci.yml](../.github/workflows/ci.yml) reprend la chaîne de Sambapilot. Il se déclenche lors d’un push, d’une pull request ou manuellement depuis **Actions → Vérifications Dotfilepilot → Run workflow**.
+Le workflow [ci.yml](../.github/workflows/ci.yml) se déclenche lors d’un push, d’une pull request ou manuellement depuis **Actions → Vérifications Dotfilepilot → Run workflow**. Sa configuration ne constitue pas une preuve d’exécution réussie.
 
-Les quatre étapes s’enchaînent ainsi :
+1. **Python** : syntaxe, liens et tests sous Python 3.9, 3.12 et 3.14, avec bilans JSON.
+2. **GTK4 et Stow** : conteneurs Arch, Debian 13, Fedora 44 et Ubuntu 24.04. La chaîne prépare les outils, vérifie la reconnaissance du système et les paquets installés, puis lance les tests natifs sous Xvfb et un compte sans privilèges. Tout test natif ignoré fait échouer cette étape.
+3. **Archives Python** : après réussite des contrôles précédents, construction des sources `.tar.gz` et du wheel `.whl`, contrôle du contenu et essai du wheel installé hors du dépôt.
+4. **Paquets natifs** : trois constructions utilisant la même archive source vérifiée, puis installation et contrôle dans les conteneurs jetables correspondants.
 
-1. **Python** : contrôles de syntaxe, liens et tests sous Python 3.9, 3.12 et 3.14 ; bilan JSON conservé pour chaque version.
-2. **GTK4 et Stow réels sur Linux** : outils installés uniquement sur le runner Ubuntu temporaire, interface testée sous Xvfb et test de sauvegarde/restauration avec GNU Stow. Un test natif ignoré fait échouer cette étape.
-3. **Distribution Python** : après réussite des deux vérifications, création de l’archive source `.tar.gz` et du wheel `.whl`, contrôle de leur contenu et test du wheel installé dans un environnement temporaire, hors des sources.
-4. **Paquet pour Arch Linux et ses dérivées** : utilisation de l’archive source vérifiée dans un conteneur Arch, construction avec `makepkg` sous un utilisateur sans privilèges, puis installation et vérification du paquet dans ce conteneur jetable.
+| Cible de construction | Recette | Outil | Artefact prévu |
+| --- | --- | --- | --- |
+| Arch Linux | `packaging/arch/PKGBUILD.in` | makepkg, utilisateur sans privilèges | `dotfilepilot-arch-…` : `.pkg.tar.zst` |
+| Debian 13 | `packaging/debian/*.in` | dpkg-buildpackage, utilisateur sans privilèges | `dotfilepilot-debian13-…` : `.deb` |
+| Fedora 44 classique | `packaging/fedora/dotfilepilot.spec.in` | rpmbuild, utilisateur sans privilèges | `dotfilepilot-fedora44-…` : `.rpm` |
 
-Les installations du workflow concernent uniquement les runners et conteneurs GitHub. Elles ne modifient pas l’ordinateur utilisé pour développer le projet.
+Les installations du workflow concernent uniquement les environnements GitHub jetables. Elles ne modifient pas la machine de développement. Aucun paquet ne clone un dépôt ni n’active de dotfiles à son installation.
 
-## Télécharger le paquet
+## Préparation des recettes
 
-Après publication des fichiers du projet sur GitHub et réussite du workflow :
-
-1. Ouvrir le dépôt puis **Actions**.
-2. Sélectionner une exécution réussie de **Vérifications Dotfilepilot**.
-3. Dans **Artifacts**, télécharger `dotfilepilot-arch-…`.
-4. Décompresser l’archive téléchargée pour récupérer le `.pkg.tar.zst`, le `PKGBUILD`, le fichier `COMMIT.txt` et `SHA256SUMS`.
-
-L’artefact `dotfilepilot-python-…` contient les archives Python. Les bilans de tests apparaissent dans `dotfilepilot-tests-python-…` et `dotfilepilot-tests-native-…`. Les artefacts sont configurés pour être conservés **30 jours**, sous réserve de la politique du dépôt GitHub.
-
-La somme SHA-256 lie le paquet à ses fichiers téléchargeables ; `COMMIT.txt` identifie la révision source. Il ne s’agit pas d’une signature cryptographique de publication.
-
-## Installation future sur Arch Linux ou une dérivée
-
-Une fois le paquet réellement construit et validé, dans le dossier contenant les fichiers téléchargés :
+Les scripts de préparation ne construisent et n’installent rien. Leur sortie doit être un nouveau dossier ; un dossier existant est refusé. Ils copient l’archive choisie et calculent son empreinte. L’archive doit avoir été contrôlée au préalable avec `scripts/check_distribution.py`.
 
 ```sh
-sha256sum --check SHA256SUMS
-sudo pacman -U ./dotfilepilot-*.pkg.tar.zst
+python3 -B scripts/prepare_arch_build.py --source dist/dotfilepilot-0.1.0.dev0.tar.gz --output /tmp/dotfilepilot-arch --pkgrel 1
+python3 -B scripts/prepare_linux_build.py --family debian --source dist/dotfilepilot-0.1.0.dev0.tar.gz --output /tmp/dotfilepilot-debian --release 1
+python3 -B scripts/prepare_linux_build.py --family fedora --source dist/dotfilepilot-0.1.0.dev0.tar.gz --output /tmp/dotfilepilot-fedora --release 1
 ```
 
-Examiner la transaction proposée avant de confirmer. Le paquet déclare `python`, `gtk4`, `python-gobject`, `git`, `stow` et `sudo` comme dépendances : pacman peut installer les composants manquants depuis les dépôts configurés. Le lanceur **Dotfilepilot** est fourni dans le menu des applications ; le terminal reste accessible avec `dotfilepilot`.
+La CI contrôle les empreintes des archives et vérifie que `COMMIT.txt` correspond à sa révision. Elle extrait ensuite les sources pour Debian ou les remet aux outils natifs Arch et Fedora. Ces opérations restent à exécuter dans les environnements prévus.
 
-Le paquet est construit dans un conteneur Arch ; cela ne démontre pas son installation sur toutes les dérivées. Vérifier les dépendances disponibles et la compatibilité du paquet sur la distribution cible. Le moteur reconnaît la famille Arch par `ID` et `ID_LIKE` dans `os-release`, sans liste de distributions autorisées.
+La version Python vient de `dotfilepilot/__init__.py` et doit correspondre à `pyproject.toml`. Debian et RPM utilisent `0.1.0~dev0` pour représenter la version de développement avant `0.1.0` ; les métadonnées Python conservent `0.1.0.dev0`. La révision des paquets reprend le numéro d’exécution GitHub.
 
-Installer l’application ne clone aucun dépôt et n’active aucune configuration. Ces opérations se demandent ensuite séparément dans l’application.
+## Télécharger les artefacts après validation
+
+Après publication autorisée des fichiers sur GitHub et réussite du workflow :
+
+1. Ouvrir le dépôt, puis **Actions** et l’exécution réussie de **Vérifications Dotfilepilot**.
+2. Choisir l’artefact correspondant à la distribution et à la version cible.
+3. Décompresser le téléchargement : paquet, recette, `COMMIT.txt` et `SHA256SUMS`.
+4. Vérifier les empreintes depuis ce dossier avec `sha256sum --check SHA256SUMS`.
+
+L’artefact `dotfilepilot-python-…` contient les archives Python. Les bilans JSON sont disponibles dans `dotfilepilot-tests-python-…` et `dotfilepilot-tests-native-FAMILLE-…`. La durée prévue est **30 jours**, sous réserve de la politique du dépôt GitHub. Les empreintes ne constituent pas une signature cryptographique de publication.
+
+## Installation future sur un système de test
+
+**Commandes à utiliser seulement après construction et validation des paquets, avec autorisation d’intervenir sur la machine cible.** Ne pas installer un paquet d’une autre distribution ou supposer qu’un RPM Fedora est portable entre toutes les versions Python de Fedora.
+
+| Cible | Commande à examiner avant confirmation |
+| --- | --- |
+| Arch ou dérivée compatible | `sudo pacman -U ./dotfilepilot-*.pkg.tar.zst` |
+| Debian 13 | `sudo apt install ./dotfilepilot_*.deb` |
+| Fedora 44 classique | `sudo dnf install ./dotfilepilot-*.rpm` |
+
+Chaque paquet déclare Python, Git, Stow, GTK4, PyGObject et sudo avec les noms adaptés à sa distribution. Le terminal reste autonome lorsqu’il est utilisé depuis les sources avec Python ; les paquets natifs fournissent l’interface complète. Les bibliothèques Python empaquetées sont celles du Python système de la distribution cible.
+
+Examiner la transaction proposée par le gestionnaire. Après installation, le lanceur **Dotfilepilot** ouvre GTK ; `dotfilepilot` reste accessible dans le terminal. Les opérations de clonage, de déploiement et d’annulation demandent ensuite leur propre aperçu et accord explicite.
+
+La reconnaissance des dérivées par `ID_LIKE` ne valide ni leurs versions de paquets ni tous leurs bureaux. Fedora Atomic / OSTree reste exclu, même si un exécutable `dnf` est présent.
 
 ## Icône et lanceur
 
-La recette installe le lanceur sous `/usr/share/applications/io.github.dotfilepilot.App.desktop` avec `Icon=io.github.dotfilepilot.App`, en cohérence avec l’identifiant GTK. Les icônes couleur et symbolique sont installées dans `hicolor`, avec neuf tailles PNG de 16 à 1024 pixels. Les mêmes assets sont embarqués dans le wheel pour permettre leur chargement depuis le paquet Python, sans installation manuelle d’icône sur le bureau. L’original de conception reste dans les sources et la documentation, hors du wheel.
+Le lanceur existant dans `packaging/arch/dotfilepilot.desktop` est commun aux trois recettes. Il est installé sous `/usr/share/applications/io.github.dotfilepilot.App.desktop`, avec `Icon=io.github.dotfilepilot.App`, en cohérence avec l’identifiant GTK. Pour Debian et Fedora, `scripts/stage_desktop.py` copie les fichiers dans la racine de construction explicite, sans remplacer un fichier existant. Il n’est pas un installateur destiné au système réel.
 
-Voir la [fiche de l’icône](icone.md) pour les fichiers, la provenance et les limites de validation. Le changement du nom du lanceur permet son association avec l’identifiant de l’application ; cette association reste à vérifier sur le bureau cible après une installation autorisée du paquet.
+Les icônes couleur et symbolique rejoignent `hicolor`, avec neuf tailles PNG de 16 à 1024 pixels. Les mêmes assets sont embarqués dans le wheel ; l’original de conception reste hors du wheel. Voir la [fiche de l’icône](icone.md). Le rendu et l’association au bureau restent à vérifier après installation autorisée.
 
-## État actuel
+## État et première reprise
 
-Le workflow, les scripts de contrôle, la recette Arch et le lanceur sont présents dans le dépôt local. Aucun push ni lancement GitHub Actions n’a été réalisé par l’assistant. La première construction complète, l’installation Arch et les contrôles GTK/Stow restent à confirmer sur les runners.
+Les adaptateurs système, recettes et jobs CI sont présents localement. Les tests ordinaires et la préparation des recettes sur fixtures ont été exécutés ; **aucun nouveau workflow GitHub ni paquet natif n’a été construit ou installé dans cette adaptation**. Le [bilan de validation](validation.md) contient les résultats précis.
 
-Les paquets sont des artefacts de développement. Aucune Release, signature, publication dans un dépôt pacman ni mise à jour automatique n’est configurée. Le modèle suit le fonctionnement actuel de Sambapilot.
+Première reprise : après demande explicite de publication, pousser les modifications et examiner la matrice native, puis les constructions et contrôles d’installation. Corriger les erreurs à partir des journaux réels. Une exécution réussie ne remplace pas les essais sur bureaux ou machines virtuelles des distributions ciblées, notamment les confirmations sudo et les installations de dépendances.
 
-La version Python vient de `dotfilepilot/__init__.py` et doit correspondre à celle de `pyproject.toml`. La révision Arch `pkgrel` reprend le numéro d’exécution GitHub. Le script de préparation refuse de remplacer un dossier de construction existant.
+Les recettes restent des artefacts de développement : aucune licence n’a été choisie. Debian utilise une identité de maintien de développement avec une adresse réservée `example.invalid` ; le champ RPM `License: Unspecified` décrit l’absence de décision et n’accorde aucun droit. Ces métadonnées devront être décidées avant toute soumission officielle ou publication publique. Aucune Release, signature, publication dans un dépôt de paquets ou mise à jour automatique n’est configurée.
 
-Références : [artefacts GitHub](https://github.com/actions/upload-artifact), [téléchargement des artefacts](https://github.com/actions/download-artifact), [documentation makepkg](https://man.archlinux.org/man/makepkg.8.en).
+Références : [construction Python Debian](https://wiki.debian.org/Python/Pybuild), [plugin pyproject Debian](https://wiki.debian.org/Python/PybuildPluginPyproject), [manuel RPM](https://rpm.org/documentation), [makepkg](https://man.archlinux.org/man/makepkg.8.en), [artefacts GitHub](https://github.com/actions/upload-artifact).

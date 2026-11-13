@@ -2,15 +2,18 @@
 
 ## Objectif retenu
 
-Créer un gestionnaire de dotfiles pour Arch Linux et ses distributions dérivées, sur le modèle de Sambapilot : moteur Python commun, terminal autonome et interface GTK4. Le choix de la famille Arch a été confirmé ; le périmètre vise ses différentes distributions, sans dépendre d’un bureau particulier.
+Créer un gestionnaire de dotfiles pour Arch Linux, Debian et Fedora classique, sur le modèle de Sambapilot : moteur Python commun, terminal autonome et interface GTK4. Le périmètre est élargi aux trois familles ; leur reconnaissance ne constitue pas une validation native de toutes leurs versions et dérivées.
 
 L’utilisateur doit pouvoir préparer sa machine, cloner son dépôt, choisir ses configurations, consulter les conflits, activer les liens et revenir à son état précédent pour les fichiers concernés.
 
-Le moteur accepte Linux avec `ID=arch` ou `arch` comme élément de `ID_LIKE` dans `os-release`, sans liste de noms de distributions. Le fichier `/usr/lib/os-release` sert de repli uniquement si `/etc/os-release` est absent. Le contenu est analysé comme des valeurs déclaratives avec gestion des guillemets, sans exécution de shell. Une identité illisible, mal formée ou non reconnue ne permet pas d’intervention. La préparation des dépendances conserve pacman ; les noms et versions disponibles dans chaque distribution restent à valider sur leurs environnements réels.
+Le moteur exige Linux et identifie d’abord `ID`, puis les mots exacts de `ID_LIKE`, dans `os-release`. Il reconnaît les familles `arch`, `debian` et `fedora`. `/usr/lib/os-release` sert de repli uniquement si `/etc/os-release` est absent. Les valeurs sont analysées sans shell. Les identités illisibles ou non reconnues et les variantes Fedora Atomic / OSTree restent bloquées. Le lancement global avec `sudo` reste refusé.
+
+`distributions.py` déclare les adaptateurs pacman, APT/dpkg et DNF/RPM : noms de composants, commande de sonde et commande d’installation. `system.py` exécute les sondes, produit les aperçus et revalide l’identité complète et les paquets manquants avant installation. Une erreur de base de paquets reste une erreur ; pour dpkg, seuls les états réellement installés, sans erreur de réparation, sont comptés. La confirmation native du gestionnaire est conservée. Aucun rafraîchissement des dépôts ni mise à jour générale n’est ajouté.
 
 ## Architecture présente
 
-- `system.py` : diagnostic, identification Arch, plan de dépendances, installation terminal et clonage HTTPS.
+- `distributions.py` : adaptateurs déclaratifs des paquets Arch, Debian et Fedora.
+- `system.py` : diagnostic, identification des familles Linux, plan de dépendances, installation terminal et clonage HTTPS.
 - `git_status.py` : consultation locale de la branche, de la révision et des changements du dépôt, partagée par `etat-git` et GTK.
 - `deployments.py` : inventaire, analyse Stow isolée, empreintes des sources et destinations, sauvegardes, journal et annulation.
 - `monitoring.py` : observation en lecture seule des liens connus des journaux, partagée par `etat` et GTK.
@@ -18,7 +21,7 @@ Le moteur accepte Linux avec `ID=arch` ou `arch` comme élément de `ID_LIKE` da
 - `gui.py` / `gtk_app.py` : chargement GTK facultatif, navigation et opérations en arrière-plan.
 - `presentation.py` : regroupement, filtrage et comptage de l’aperçu d’activation, ainsi que présentation du rapport d’état, sans GTK ni accès aux fichiers.
 - `tests/` : scénarios isolés avec fichiers temporaires, commandes simulées et intégration Stow facultative.
-- `.github/workflows/ci.yml` et `packaging/arch/` : chaîne de tests, archives Python et paquet Arch, configurée mais encore à valider sur GitHub.
+- `.github/workflows/ci.yml` et `packaging/` : tests natifs Arch, Debian 13, Fedora 44 et Ubuntu 24.04, archives Python et recettes Arch/Debian/Fedora ; constructions et installations à valider sur GitHub.
 
 Le moteur n’exécute pas de shell. Le clonage désactive les hooks, les modèles Git, les configurations Git globales et les sous-modules. Cette première version ne gère ni authentification privée, ni secrets enregistrés, ni exécution des programmes du dépôt.
 
@@ -67,40 +70,27 @@ GTK lance la consultation en arrière-plan et écarte le résultat si les champs
 
 ## Limites de la première version
 
-Le code constitue une version de développement, pas une version prête pour les configurations personnelles. La validation native Stow, GTK, pacman, sudo et Git réseau reste à réaliser. Les protections visent les erreurs courantes et les changements entre aperçu et application ; elles ne garantissent pas une transaction atomique face à un autre programme qui modifie simultanément les mêmes chemins.
+Le code constitue une version de développement, pas une version prête pour les configurations personnelles. La validation native Stow, GTK, des gestionnaires de paquets, de sudo et de Git réseau reste à réaliser. Les protections visent les erreurs courantes et les changements entre aperçu et application ; elles ne garantissent pas une transaction atomique face à un autre programme qui modifie simultanément les mêmes chemins.
 
 Le mode utilisateur vise le dossier personnel. Les modèles destinés à `/etc`, comme Samba et pacman, exigent un futur parcours séparé. Aucun privilège administrateur n’est utilisé pour Stow. Les répertoires vides créés par Stow ne sont pas supprimés lors de l’annulation.
 
-## Évolution possible vers d’autres distributions Linux
+## Extension aux trois familles — 13 novembre 2026
 
-**Proposition future, non implémentée.** La structure du projet constitue une base réutilisable pour prendre en charge d’autres familles Linux, mais leur compatibilité n’est pas acquise. Le périmètre actuel reste Arch Linux et ses distributions dérivées.
+Les adaptations système, terminal et GTK sont présentes dans le code. Le moteur de déploiement, les sauvegardes et les journaux conservent leur format et leurs protections. Aucun catalogue d’applications ni déploiement dans `/etc` n’est ajouté.
 
-| Partie | Situation actuelle | Adaptation nécessaire |
-| --- | --- | --- |
-| Déploiement, sauvegardes et annulation | Moteur largement réutilisable sur Linux, fondé sur Python et GNU Stow. | Valider les chemins, permissions, conflits et reprises dans chaque environnement cible. |
-| Terminal et interface GTK4 | Deux interfaces partageant le même moteur ; GTK reste facultatif pour le terminal. | Adapter les indications de préparation et valider les composants graphiques disponibles. |
-| Détection et autorisation | Les interventions sont réservées à la famille Arch, identifiée par `os-release`. | Distinguer l’identité du système de ses capacités et des familles réellement prises en charge. |
-| Installation des dépendances | Commandes pacman et noms de paquets propres à cette famille. | Prévoir des adaptateurs de gestionnaires de paquets et leurs correspondances de dépendances. |
-| Distribution de l’application | Archives Python et recette de paquet Arch. | Préparer et valider le conditionnement et le lanceur adaptés aux nouvelles familles. |
+Les recettes `.deb` et `.rpm` sont préparées par `scripts/prepare_linux_build.py`, qui copie une archive source, enregistre son empreinte et refuse un dossier de sortie existant. La version de développement Python est traduite en `~dev` pour précéder la version finale dans dpkg et RPM. Le lanceur existant, conservé dans `packaging/arch/`, est réutilisé par les trois formats ; `scripts/stage_desktop.py` copie les assets dans les racines de construction Debian et Fedora. La licence reste non choisie et les métadonnées de maintien Debian sont explicitement des valeurs de développement ; ces recettes ne sont pas des soumissions aux distributions.
 
-Pour envisager Debian, Ubuntu, Linux Mint ou Fedora, séparer les particularités de distribution du moteur commun : détection, gestionnaire de paquets, noms des dépendances et conditionnement. Le terminal et GTK devront continuer à réutiliser les mêmes validations. La disponibilité d’un gestionnaire de paquets ne suffit pas à déclarer une distribution compatible.
+La CI prépare les composants dans des conteneurs jetables, vérifie l’adaptateur sur leur base réelle de paquets et exécute GTK/Stow sous un compte sans privilèges. Après réussite de la matrice native et Python, elle prépare les archives communes puis les trois formats de paquets. Les installations de contrôle n’activent aucun dotfile.
 
-Une mise en œuvre progressive pourrait suivre ces étapes :
+Restent à vérifier : exécution de cette chaîne, disponibilité des dépendances dans les images choisies, construction et installation des paquets, puis essais sur bureaux et machines virtuelles. Le [bilan de validation](validation.md) distingue les tests locaux simulés de ces validations. Les distributions dérivées reconnues par `ID_LIKE` ne sont pas automatiquement annoncées comme testées.
 
-1. Définir les responsabilités des adaptateurs système en conservant le fonctionnement Arch existant.
-2. Ajouter une seule nouvelle famille, avec ses noms de paquets et ses commandes de diagnostic et d’installation explicites.
-3. Tester les plans, les refus et la gestion des erreurs sur des données fictives, puis valider les interventions dans un environnement jetable autorisé.
-4. Valider les parcours réels du terminal, de GTK, des sauvegardes et de l’annulation, ainsi que les paquets installés, avant d’annoncer la prise en charge.
-
-Conserver le parcours aperçu, confirmation, revalidation, sauvegarde, application et vérification. Aucun adaptateur ne doit ajouter d’installation au démarrage ni contourner les confirmations. Les noms de paquets et les commandes des nouvelles familles restent à rechercher et à vérifier lors de leur implémentation.
-
-Cette proposition ne modifie pas les restrictions du code, n’ajoute aucune compatibilité macOS et n’autorise aucune installation sur la machine de développement. Elle est consignée uniquement pour une évolution éventuelle, sans changement applicatif ni test exécuté.
+Références techniques : [identité os-release](https://www.freedesktop.org/software/systemd/man/latest/os-release.html), [composants PyGObject](https://pygobject.gnome.org/getting_started.html), [états dpkg-query](https://manpages.debian.org/bookworm/dpkg/dpkg-query.1.en.html), [formats de requête RPM](https://rpm.org/docs/6.0.x/man/rpm-queryformat.7), [construction Python Debian](https://wiki.debian.org/Python/Pybuild).
 
 ## Suite proposée
 
-- Valider l’intégration Stow et les parcours GTK sur Arch Linux puis sur des distributions dérivées identifiées.
+- Valider l’intégration Stow et les parcours GTK sur Arch, Debian 13 et Fedora 44, puis sur les dérivées identifiées ciblées.
 - Tester le clonage réseau et l’installation des dépendances dans une machine virtuelle jetable.
-- Valider la construction du paquet Arch et son lanceur de bureau, désormais préparés dans la chaîne GitHub.
+- Valider les trois constructions de paquets, leurs installations et leur lanceur de bureau dans la chaîne GitHub.
 - Valider le tableau GTK d’activation : lisibilité des chemins longs, filtres, clavier et volumes importants.
 - Ouvrir une configuration dans l’éditeur choisi, après définition du parcours correspondant.
 - Préparer les mises à jour Git : vérifier les modifications locales, afficher la révision proposée et expliquer que les liens actifs changent immédiatement ; aucune mise à jour silencieuse.

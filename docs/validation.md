@@ -1,5 +1,26 @@
 # Validation et reprise
 
+## Adaptation Arch, Debian et Fedora — 13 novembre 2026
+
+L’extension des trois familles est implémentée : détection `os-release` avec priorité à `ID`, adaptateurs pacman/APT-dpkg/DNF-RPM, diagnostic partagé et contrôles terminal/GTK. L’aperçu des dépendances inclut l’identité du système et est recalculé avant installation. Les systèmes inconnus, l’exécution globale en root et les variantes Fedora Atomic / OSTree restent refusés. Le moteur de liens, les sauvegardes, l’annulation et le format des journaux ne sont pas modifiés.
+
+Les recettes Debian et Fedora, leur préparation sans écrasement et les contrôles d’assets rejoignent la recette Arch. Le workflow prévoit les tests natifs sur Arch, Debian 13, Fedora 44 et Ubuntu 24.04, puis la construction sans privilèges et l’installation de contrôle des trois formats dans leurs conteneurs jetables. Les métadonnées des nouveaux paquets restent celles d’artefacts de développement, sans licence choisie.
+
+Contrôles locaux sur le Mac :
+
+- `python3 -B -m dotfilepilot --help` : réussi, terminal chargé sans GTK.
+- Suite ordinaire : **120 tests découverts, 96 réussis, 24 ignorés** (23 GTK et 1 Stow réel). Aucun échec. Les sondes des trois gestionnaires et leurs installations sont simulées ; les déploiements utilisent des fichiers temporaires et un Stow simulé.
+- Préparation des recettes Arch/Debian/Fedora sur archives fictives : empreintes, correspondance de version, refus des entrées invalides et des sorties existantes vérifiés. Copie du lanceur et des onze fichiers d’icônes dans une racine temporaire vérifiée. Aucune archive native construite.
+- `make check` : syntaxe Python, liens Markdown et espaces Git vérifiés.
+- YAML analysé avec Psych (Ruby disponible) et scripts shell du workflow vérifiés avec `bash -n` ; cela ne valide pas les actions GitHub, les images ou les transactions de paquets.
+
+GTK/PyGObject, Stow et le module Python `build` sont absents localement. Aucun composant installé pour les contrôles. Aucune configuration personnelle, installation de dépendances, transaction sudo, construction native ou activation réelle exécutée. Aucun commit, push, lancement de workflow ni publication de paquet.
+
+**Première reprise** : après autorisation explicite de publication, pousser ces modifications et examiner les journaux de la matrice native et des trois constructions. Les contrôles de CI devront notamment confirmer les sondes dpkg/RPM sur les bases réelles, la disponibilité des outils et les chemins Python des paquets installés. Poursuivre sur des machines virtuelles jetables avec la recette ci-dessous, adaptée à chaque distribution ; tester séparément l’installation interactive des dépendances et les parcours GTK. Ne pas annoncer toutes les dérivées, toutes les versions ou les environnements Atomic comme validés.
+
+Les sections datées ci-dessous décrivent les sessions antérieures ; leurs restrictions Arch et leurs anciens totaux ne représentent pas le nouveau périmètre.
+
+
 ## Ciblage Arch Linux et distributions dérivées — 12 novembre 2026
 
 Les textes, métadonnées, instructions du dépôt et intitulés de distribution visent désormais Arch Linux et ses distributions dérivées. Le contrôle du moteur accepte `ID=arch` ou le mot exact `arch` dans `ID_LIKE`, sous Linux. Les valeurs entre guillemets sont analysées sans shell ; `/usr/lib/os-release` est lu seulement si `/etc/os-release` est absent. Les identités non reconnues ou illisibles restent refusées, et pacman reste nécessaire pour la préparation des dépendances.
@@ -117,9 +138,9 @@ La commande produite plaçait `--` entre `--stow` et les noms des configurations
 
 Une reproduction locale avec le module Perl `Getopt::Long`, déjà disponible, confirme que `--stow -- zsh` laisse la liste des paquets vide alors que `--stow zsh` transmet `zsh`. Référence : [analyseur de GNU Stow](https://github.com/aspiers/stow/blob/master/bin/stow.in). Ce contrôle n’est pas une exécution de Stow : la reconstruction complète du paquet Arch reste à vérifier lors d’une prochaine exécution GitHub.
 
-## Recette à effectuer sur Arch Linux et ses dérivées
+## Recette à effectuer sur chaque distribution Linux ciblée
 
-**Procédure future, non exécutée sur le Mac.** Utiliser un compte de test sur Arch Linux ou une distribution dérivée, ou une machine virtuelle jetable, avec Python, Git, Stow, GTK4, PyGObject et un affichage déjà disponibles. Si un composant manque, arrêter et préparer séparément son installation après autorisation. Travailler depuis la racine du projet, sans `sudo` pour l’application. Aucun dossier personnel réel ne doit servir de cible.
+**Procédure future, non exécutée sur le Mac.** Utiliser un compte de test sur Arch, Debian 13, Fedora 44 classique ou une dérivée explicitement ciblée, dans une machine virtuelle jetable, avec Python, Git, Stow, GTK4, PyGObject et un affichage déjà disponibles. Si un composant manque, arrêter et préparer séparément son installation après autorisation. Travailler depuis la racine du projet, sans `sudo` pour l’application. Aucun dossier personnel réel ne doit servir de cible.
 
 ### 1. Vérifications automatiques
 

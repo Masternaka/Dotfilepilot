@@ -10,7 +10,7 @@ from . import deployments as deploy
 from .presentation import activation_table, current_state_text, repository_status_text
 from .monitoring import current_state
 from .git_status import repository_status
-from .system import clone, clone_plan, diagnostic, require_arch
+from .system import clone, clone_plan, diagnostic, require_supported
 
 
 APP_ID = "io.github.dotfilepilot.App"
@@ -492,7 +492,7 @@ class Window(Gtk.ApplicationWindow):
         action = self.pending
 
         def work():
-            require_arch()
+            require_supported()
             return action()
         self.task(work, lambda message: self.output.get_buffer().set_text(str(message)),
                   intervention=True)

@@ -1,0 +1,12 @@
+#!/usr/bin/make -f
+export PYBUILD_NAME=dotfilepilot
+
+%:
+	dh $@ --buildsystem=pybuild
+
+override_dh_auto_test:
+	DOTFILEPILOT_TEST_STOW=1 python3 -B scripts/run_tests.py
+
+override_dh_auto_install:
+	dh_auto_install
+	python3 -B scripts/stage_desktop.py --root debian/dotfilepilot
